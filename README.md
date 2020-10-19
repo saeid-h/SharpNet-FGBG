@@ -31,7 +31,21 @@ provide sharper normals and contours predictions.
 ```
 git clone https://github.com/MichaelRamamonjisoa/SharpNet.git
 cd SharpNet
-mkdir models && cd models
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get update
+sudo apt-get install python3.6
+virtualenv -p /usr/bin/python3.6 SharpNet
+source SharpNet/bin/activate
+pip install -r requirements.txt
+mkdir -p /data/working/saeid/SharpNet/logs
+mkdir -p /data/working/saeid/SharpNet/checkpoints
+ln -s /data/working/saeid/SharpNet/logs logs
+ln -s /data/working/saeid/SharpNet/checkpoints checkpoints
+mkdir datasets
+cd datasets
+ln -s /datasets/replica_depth/ replica
+cd ..
+mkdir -p models && cd models
 ```
 
 Put the trained weights in the models/ directory.
@@ -79,7 +93,6 @@ Therefore exact reproduction of our training procedure cannot be done properly.
 For finetuning on NYUv2 Depth dataset, you will need the [dataset](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2) and split:
 
 ```
-mkdir datasets
 wget -O datasets/nyuv2_splits.mat http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
 wget -O datasets/nyu_depth_v2_labeled.mat http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
 ```
@@ -87,7 +100,7 @@ wget -O datasets/nyu_depth_v2_labeled.mat http://horatio.cs.nyu.edu/mit/silberma
 Use the following command to train the network on NYUv2:
 
 ```
-python3 train_sharpnet.py --dataset NYU \
+python3 train.py --dataset NYU \
 --rootdir ../datasets/ \
 -b BATCH_SIZE \
 --cuda CUDA_DEVICE_ID --cpu NUM_PROCESSES \

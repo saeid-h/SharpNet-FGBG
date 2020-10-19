@@ -76,3 +76,4 @@ pretrained/
 datasets/
 models/
 logs/
+logs
