@@ -324,7 +324,7 @@ def main():
     resnet_path = 'models/resnet50-19c8e357.pth'
 
     if not os.path.exists(resnet_path):
-        command = 'wget ' + resnet50_url + ' && mkdir models/ && mv resnet50-19c8e357.pth models/'
+        command = 'wget ' + resnet50_url + ' && mkdir -p models/ && mv resnet50-19c8e357.pth models/'
         os.system(command)
 
     resnet50_dict = torch.load(resnet_path)

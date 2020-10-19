@@ -226,3 +226,55 @@ class NYUDataset(GeoDataset):
                                   boundary=boundary)
         return sample
 
+class ReplicaDataset(GeoDataset):
+    def __init__(self, dataset_path, split_type='train', root_dir='', img_size=512, transforms=None,
+                 use_boundary=False,
+                 use_depth=True,
+                 use_normals=True,
+                 input_type='image'):
+        super(NYUDataset, self).__init__(img_list=None, root_dir=root_dir, img_size=img_size,
+                                         transforms=transforms,
+                                         use_boundary=use_boundary,
+                                         use_depth=use_depth,
+                                         use_normals=use_normals,
+                                         input_type=input_type)
+
+        self.dataset_path = os.path.join(root_dir, dataset_path)
+        used_split = io.loadmat(os.path.join(root_dir, 'nyuv2_splits.mat'))
+        self.idx_list = [idx[0] - 1 for idx in used_split[split_type + 'Ndxs']]
+
+    def __len__(self):
+        return len(self.idx_list)
+
+    def __getitem__(self, idx):
+        # Get image from NYUv2 mat file
+        # Crop border by 6 pixels
+        dataset = h5py.File(self.dataset_path, 'r', libver='latest', swmr=True)
+        image = dataset['images'][self.idx_list[idx]]
+        image_new = image.swapaxes(0, 2)
+
+        normals = None
+        boundary = None
+        depth = None
+
+        crop_ROI = [6, 6, 473, 630]
+        image_new = image_new[crop_ROI[0]:crop_ROI[2], crop_ROI[1]:crop_ROI[3], :]
+
+        mask_valid = np.ones(shape=image_new.shape[:2])
+        mask_valid = Mask(data=mask_valid.copy())
+
+        image_new = Image.fromarray(image_new)
+        image = InputImage(data=image_new.copy())
+
+        if self.use_depth:
+            data = dataset['depths'][self.idx_list[idx]].swapaxes(0, 1).astype('float32') * 1000 / 65535
+            data = data[crop_ROI[0]:crop_ROI[2], crop_ROI[1]:crop_ROI[3]]
+            depth = Depth(data=data.copy())
+
+        sample = self.format_data(image,
+                                  mask_valid=mask_valid,
+                                  depth=depth,
+                                  normals=normals,
+                                  boundary=boundary)
+        return sample
+
