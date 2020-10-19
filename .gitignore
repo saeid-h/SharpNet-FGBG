@@ -75,3 +75,4 @@ checkpoints/
 pretrained/
 datasets/
 models/
+logs/

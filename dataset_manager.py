@@ -256,7 +256,6 @@ class ReplicaDataset(GeoDataset):
         
         self.img_list = [os.path.join('replica/image_left', x.split(' ')[0]) for x in img_list]
         self.depth_list = [os.path.join('replica/depth_left', x.split(' ')[1]) for x in img_list]
-        print (len(self.img_list))
 
     def __len__(self):
         return len(self.img_list)

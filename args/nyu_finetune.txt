@@ -1,0 +1,15 @@
+--exp_name NYU_SharpNet_base
+--dataset NYU 
+--rootdir datasets 
+--batch-size 4 
+--cuda 0 
+--cpu 8 
+--bias 
+--consensus 
+--boundary 
+--normals 
+--depth 
+--freeze normals,boundary 
+--pretrained-model models/final_checkpoint_PBRS_consensus.pth 
+--lr 8e-3 
+--max-epoch 80

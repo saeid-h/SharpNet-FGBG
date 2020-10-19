@@ -296,7 +296,7 @@ def get_trainval_splits(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train the SharpNet network")
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description="Train the SharpNet network")
     parser.add_argument('--dataset', '-d', dest='dataset', help='Name of the dataset (MLT, NYUv2 or pix3d)')
     parser.add_argument('--exp_name', dest='experiment_name', help='Custom name of the experiment', type=str, default=None)
     parser.add_argument('--batch-size', '-b', dest='batch_size', type=int, default=3, help='Batch size')
@@ -326,7 +326,16 @@ def main():
     parser.add_argument('--optimizer', dest='optimizer', default='SGD', type=str, help="Optimizer type: SGD  /  Adam")
     parser.add_argument('--decay', dest='decay', default=5e-5, type=float, help="Weight decay rate")
 
-    args = parser.parse_args()
+    if sys.argv.__len__() == 2:
+        arg_list = list()
+        with open(sys.argv[1], 'r') as f:
+            lines = f.readlines()
+        for line in lines:
+            arg_list += line.strip().split()
+        args = parser.parse_args(arg_list)
+    else:
+        args = parser.parse_args()
+
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.cuda_device)
     cuda = False if args.nocuda else True
 
@@ -397,19 +406,20 @@ def main():
     freeze_decoders = args.decoder_freeze.split(',')
     freeze_model_decoders(model, freeze_decoders)
 
-    if args.dataset != 'NYU':
-        sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
-                                     use_depth=True if args.depth else False,
-                                     use_boundary=True if args.boundary else False,
-                                     use_normals=True if args.normals else False,
-                                     use_geo_consensus=True if args.geo_consensus else False)
-    else:
+    
+    if args.dataset in ['NYU', 'Replica'] :
         sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
                                      use_depth=True if args.depth else False,
                                      use_boundary=False,
                                      use_normals=False,
                                      use_geo_consensus=True if args.geo_consensus else False)
-
+    else:
+        sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
+                                     use_depth=True if args.depth else False,
+                                     use_boundary=True if args.boundary else False,
+                                     use_normals=True if args.normals else False,
+                                     use_geo_consensus=True if args.geo_consensus else False)
+    
     if args.optimizer == 'SGD':
         optimizer = SGD(params=get_params(model),
                         lr=args.learning_rate,
