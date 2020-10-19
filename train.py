@@ -198,7 +198,34 @@ def get_trainval_splits(args):
                        'std': [0.229, 0.224, 0.225]}
          }
 
-    if args.dataset != 'NYU':
+    if args.dataset == 'Replica':
+        try:
+            with open(os.path.join(args.root_dir, '../lists/replica_train_files_with_gt.txt'), 'r') as f:
+                list_train_files = [line.split('\n')[0] for line in f.readlines() if line != '\n']
+        except Exception as e:
+            print('The file containing the list of images does not exist')
+            print(os.path.join(args.root_dir, '../lists/replica_train_files_with_gt.txt'))
+            sys.exit(0)
+
+        try:
+            with open(os.path.join(args.root_dir, '../lists/replica_test_files_with_gt.txt'), 'r') as f:
+                list_val_files = [line.split('\n')[0] for line in f.readlines() if line != '\n']
+        except Exception as e:
+            print('The file containing the list of images does not exist')
+            print(os.path.join(args.root_dir, '../lists/replica_test_files_with_gt.txt'))
+            sys.exit(0)
+
+        if len(list_train_files) < 2:
+            print('Train file contains less than 2 files, error')
+            sys.exit(0)
+        if len(list_val_files) < 2:
+            print('Val file contains less than 2 files, error')
+            sys.exit(0)
+
+        train_files = list_train_files
+        val_files = list_val_files
+    
+    elif args.dataset != 'NYU':
         try:
             with open(os.path.join(args.root_dir, 'jobs_train.txt'), 'r') as f:
                 list_train_files = [line.split('\n')[0] for line in f.readlines() if line != '\n']
@@ -243,6 +270,17 @@ def get_trainval_splits(args):
                                    use_boundary=False,
                                    use_normals=False)
         val_dataset = NYUDataset('nyu_depth_v2_labeled.mat', split_type='test', root_dir=args.root_dir,
+                                 transforms=t,
+                                 use_depth=True,
+                                 use_boundary=False,
+                                 use_normals=False)
+    elif args.dataset == 'Replica':
+        train_dataset = ReplicaDataset(img_list=train_files, root_dir=args.root_dir,
+                                   transforms=t,
+                                   use_depth=True,
+                                   use_boundary=False,
+                                   use_normals=False)
+        val_dataset = ReplicaDataset(img_list=val_files, root_dir=args.root_dir,
                                  transforms=t,
                                  use_depth=True,
                                  use_boundary=False,
