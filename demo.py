@@ -132,7 +132,15 @@ parser.add_argument('--display', action='store_true', help='Activate to display 
 parser.add_argument('--live', action='store_true', help='Activate to use a camera')
 parser.add_argument('--bias', action='store_true')
 
-args = parser.parse_args()
+if sys.argv.__len__() == 2:
+    arg_list = list()
+    with open(sys.argv[1], 'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        arg_list += line.strip().split()
+    args = parser.parse_args(arg_list)
+else:
+    args = parser.parse_args()
 
 if not args.nocuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.cuda_device)
@@ -201,7 +209,7 @@ if not args.live:
     if args.display:
         if (num_pred % 3) < 2:
             for k, pred in enumerate(preds_display):
-                plt.subplot(2, 2, k)
+                plt.subplot(2, 2, k+1)
                 plt.imshow(pred)
         elif (num_pred % 3) == 2:
             plt.subplot(1, 2, 1)
@@ -210,6 +218,7 @@ if not args.live:
             plt.imshow(preds_display[0])
         elif num_pred == 1:
             plt.imshow(image_np)
+    plt.show()
 
     if args.outpath is not None:
         img_name = os.path.basename(image_path).rsplit('.')[0]
