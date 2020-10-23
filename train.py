@@ -300,17 +300,12 @@ def main():
     parser.add_argument('--dataset', '-d', dest='dataset', help='Name of the dataset (MLT, NYUv2 or pix3d)')
     parser.add_argument('--exp_name', dest='experiment_name', help='Custom name of the experiment', type=str, default=None)
     parser.add_argument('--batch-size', '-b', dest='batch_size', type=int, default=3, help='Batch size')
-    parser.add_argument('--iter-size', dest='iter_size', type=int, default=3,
-                        help='Iteration size (for accumulated gradients)')
-    parser.add_argument('--boundary', action='store_true',
-                        help='Use boundary decoder')
-    parser.add_argument('--normals', action='store_true',
-                        help='Use normals decoder')
-    parser.add_argument('--depth', action='store_true',
-                        help='Use depth decoder')
+    parser.add_argument('--iter-size', dest='iter_size', type=int, default=3, help='Iteration size (for accumulated gradients)')
+    parser.add_argument('--boundary', action='store_true',help='Use boundary decoder')
+    parser.add_argument('--normals', action='store_true', help='Use normals decoder')
+    parser.add_argument('--depth', action='store_true', help='Use depth decoder')
     parser.add_argument('--consensus', dest='geo_consensus', action='store_true')
-    parser.add_argument('--freeze', dest='decoder_freeze', default='', type=str,
-                        help='Decoders to freeze (comma seperated)')
+    parser.add_argument('--freeze', dest='decoder_freeze', default='', type=str, help='Decoders to freeze (comma seperated)')
     parser.add_argument('--verbose', action='store_true', help='Activate to display loss components terms')
     parser.add_argument('--rootdir', '-r', dest='root_dir', default='', help='Root Directory of the dataset')
     parser.add_argument('--nocuda', action="store_true", help='Use flag to use on CPU only (currently not supported)')

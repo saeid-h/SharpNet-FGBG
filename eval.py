@@ -1,4 +1,4 @@
-import argparse
+import argparse, sys
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -23,22 +23,26 @@ import h5py
 import cv2
 
 parser = argparse.ArgumentParser(description="Test a model on an image")
-parser.add_argument('--rootdir', dest='rootdir',
-                    help="Directory containing and nyu_depth_v2_labeled.mat and nyuv2_splits.mat files")
-parser.add_argument('--model', '-m', dest='model',
-                    help="checkpoint.pth which contains the model")
+parser.add_argument('--rootdir', dest='rootdir', help="Directory containing and nyu_depth_v2_labeled.mat and nyuv2_splits.mat files")
+parser.add_argument('--model', '-m', dest='model', help="checkpoint.pth which contains the model")
 parser.add_argument('--savepath', dest='savepath', type=str)
 parser.add_argument('--cuda', dest='cuda_device', default='', help="To activate inference on GPU, set to GPU_ID")
 parser.add_argument('--nocuda', action='store_true')
-parser.add_argument('--crop', dest='eigen_crop', action='store_true',
-                    help='Flag to evaluate on center crops defined by Eigen')
+parser.add_argument('--crop', dest='eigen_crop', action='store_true', help='Flag to evaluate on center crops defined by Eigen')
 parser.add_argument('--edges', action='store_true', help='Flag to evaluate on occlusion boundaries')
-parser.add_argument('--low', dest='low_threshold', type=float, default=0.03,
-                    help='Low threshold of Canny edge detector')
-parser.add_argument('--high', dest='high_threshold', type=float, default=0.05,
-                    help='High threshold of Canny edge detector')
+parser.add_argument('--low', dest='low_threshold', type=float, default=0.03, help='Low threshold of Canny edge detector')
+parser.add_argument('--high', dest='high_threshold', type=float, default=0.05, help='High threshold of Canny edge detector')
+parser.add_argument('--depth', action='store_true', help='Activate to predict depth')
 
-args = parser.parse_args()
+if sys.argv.__len__() == 2:
+    arg_list = list()
+    with open(sys.argv[1], 'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        arg_list += line.strip().split()
+    args = parser.parse_args(arg_list)
+else:
+    args = parser.parse_args()
 
 
 def predict_depth(model, image):

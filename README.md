@@ -1,3 +1,5 @@
+Note: This code was adapted and modified from [this repository](https://github.com/MichaelRamamonjisoa/SharpNet).
+
 # SharpNet
 *Fast and Accurate Recovery of Occluding Contours in Monocular Depth Estimation*, 
 by Michaël Ramamonjisoa and Vincent Lepetit.
