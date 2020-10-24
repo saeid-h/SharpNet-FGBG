@@ -218,7 +218,7 @@ if not args.live:
             plt.imshow(preds_display[0])
         elif num_pred == 1:
             plt.imshow(image_np)
-    plt.show()
+        plt.show()
 
     if args.outpath is not None:
         img_name = os.path.basename(image_path).rsplit('.')[0]
