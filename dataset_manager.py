@@ -256,6 +256,8 @@ class ReplicaDataset(GeoDataset):
         
         self.img_list = [os.path.join('replica/image_left', x.split(' ')[0]) for x in img_list]
         self.depth_list = [os.path.join('replica/depth_left', x.split(' ')[1]) for x in img_list]
+        self.img_list.sort()
+        self.depth_list.sort()
 
     def __len__(self):
         return len(self.img_list)
@@ -276,7 +278,7 @@ class ReplicaDataset(GeoDataset):
         if self.use_depth:
             depth_name = self.depth_list[idx]
             depth_path = os.path.join(self.root_dir, depth_name)
-            data = depth_read(depth_path)
+            data = depth_read(depth_path) / 65.535 
             depth = Depth(data=data.copy())
 
         sample = self.format_data(image,
