@@ -1,4 +1,4 @@
-import argparse, sys
+import argparse, sys, os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -9,19 +9,11 @@ from sharpnet_model import SharpNet
 from loss import *
 from PIL import Image
 try:
-    from imageio import imread, imsave
+    from imageio import imsave, imread
 except:
-    from scipy.misc import imread, imsave
+    from scipy.misc import imsave, imread
 from data_transforms import ToTensor, Compose, Normalize
-from skimage import feature
-from scipy import ndimage
-import time
 from tqdm import tqdm
-
-import os
-import scipy.io as io
-import h5py
-import cv2
 
 TAG_FLOAT = 202021.25
 TAG_CHAR = 'PIEH'
@@ -142,10 +134,10 @@ def save_preds(outpath, preds, image_path, args):
     if args.depth: depth_write(os.path.join(outpath, 'raw' ,image_name.replace('.png','.dpt')), preds['raw'])
 
     if not preds['gt'] is None and args.depth:
-        gt_depth = preds['gt'][192:192+128,192:192+160]
+        gt_depth = preds['gt'][192:192+128,192:192+160] 
         pred_depth = preds['raw'][192:192+128,192:192+160]
         ref_depth = np.percentile(gt_depth, 50)
-        
+
         gt_mask = np.zeros_like(gt_depth)
         gt_mask[ref_depth>gt_depth] = 255
         imsave(os.path.join(outpath, 'occ_mask_gt' ,image_name), gt_mask.astype(np.uint8))
@@ -154,7 +146,7 @@ def save_preds(outpath, preds, image_path, args):
         init_mask[ref_depth>pred_depth] = 255
         imsave(os.path.join(outpath, 'occ_mask_init',image_name), init_mask.astype(np.uint8))
 
-        final_mask = sigmoid(ref_depth-pred_depth) * 255
+        final_mask = sigmoid(10*(ref_depth-pred_depth)) * 255
         imsave(os.path.join(outpath, 'occ_mask_final' ,image_name), final_mask.astype(np.uint8))
 
 
@@ -168,7 +160,6 @@ parser.add_argument('--filenames_file',     type=str,   help='path to the filena
 parser.add_argument('--save_path', dest='save_path', type=str)
 parser.add_argument('--cuda', dest='cuda_device', default='', help="To activate inference on GPU, set to GPU_ID")
 parser.add_argument('--nocuda', action='store_true')
-parser.add_argument('--crop', dest='eigen_crop', action='store_true', help='Flag to evaluate on center crops defined by Eigen')
 parser.add_argument('--edges', action='store_true', help='Flag to evaluate on occlusion boundaries')
 parser.add_argument('--low', dest='low_threshold', type=float, default=0.03, help='Low threshold of Canny edge detector')
 parser.add_argument('--high', dest='high_threshold', type=float, default=0.05, help='High threshold of Canny edge detector')
@@ -190,19 +181,9 @@ else:
 if not args.nocuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.cuda_device)
     device = torch.device("cuda" if args.cuda_device != '' else "cpu")
-    # print("Running on " + torch.cuda.get_device_name(device))
 else:
     device = torch.device('cpu')
     print("Running on CPU")
-
-with open(args.filenames_file, 'r') as f:
-    lines = f.readlines()
-image_list = [os.path.join(args.data_path, line.strip().split()[0]) for line in lines]
-image_list.sort()
-if args.gt_path:
-    gt_list = [os.path.join(args.gt_path, line.strip().split()[1]) for line in lines]
-    gt_list.sort()
-
 
 model = SharpNet(ResBlock, [3, 4, 6, 3], [2, 2, 2, 2, 2],
                  use_normals=True if args.normals else False,
@@ -240,16 +221,30 @@ if args.save_path is not None:
     if args.normals: os.system ('mkdir -p '+os.path.join(outpath, 'normals'))
     if args.boundary: os.system ('mkdir -p '+os.path.join(outpath, 'boundary'))
 
+with open(args.filenames_file, 'r') as f:
+    lines = f.readlines()
+image_list = [os.path.join(args.data_path, line.strip().split()[0]) for line in lines]
+image_list.sort()
+if args.gt_path:
+    gt_list = [os.path.join(args.gt_path, line.strip().split()[1]) for line in lines]
+    gt_list.sort()
+n_sample = len(image_list)
 
-for indx in tqdm(range(len(image_list))):
-    image_path = image_list[indx]
-    image_pil = Image.open(image_path)
-    
-    gt = depth_read(gt_list[indx]) if args.gt_path else None
+for indx in tqdm(range(n_sample)):
+    if args.dataset.lower() in ['replica']:
+        image_path = image_list[indx]
+        image_pil = Image.open(image_path)
+        gt = depth_read(gt_list[indx]) if args.gt_path else None
+    elif args.dataset.lower() in ['nyu']:
+        image_path = image_list[indx]
+        image_pil = Image.open(image_path)
+        gt = imread(gt_list[indx])/1000. if args.gt_path else None
+    else:
+        gt = None
 
     preds = get_pred_from_input(image_pil, args)
     preds.update({'gt': gt})
-
+    
     if args.save_path is not None:
         save_preds(outpath, preds, image_path, args)
 
