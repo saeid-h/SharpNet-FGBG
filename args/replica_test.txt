@@ -1,5 +1,4 @@
---model checkpoints/Joint/replica_sharpnet_base_19-10-2020_14-37/checkpoint_160_final.pth
---model models/final_checkpoint_PBRS_consensus.pth
+--model checkpoints/Joint/replica_sharpnet_base_24-10-2020_20-15/checkpoint_30_final.pth
 --data_path datasets/replica/image_left/
 --gt_path datasets/replica/depth_left/
 --filenames_file lists/replica_test_files_with_gt.txt
