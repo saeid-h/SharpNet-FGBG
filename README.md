@@ -31,7 +31,7 @@ Weights trained on NYUv2 should be used for depth estimation, ***however*** weig
 provide sharper normals and contours predictions.
 
 ```
-git clone https://github.com/MichaelRamamonjisoa/SharpNet.git
+git clone https://github.com/saeid-h/SharpNet-OCC.git
 cd SharpNet
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt-get update
