@@ -30,7 +30,7 @@ Clone the repository and download the trained weights:
 Weights trained on NYUv2 should be used for depth estimation, ***however*** weights trained on synthetic data only 
 provide sharper normals and contours predictions.
 
-```
+```bash
 git clone https://github.com/saeid-h/SharpNet-OCC.git
 cd SharpNet
 sudo add-apt-repository ppa:deadsnakes/ppa
@@ -39,10 +39,13 @@ sudo apt-get install python3.6
 virtualenv -p /usr/bin/python3.6 SharpNet
 source SharpNet/bin/activate
 pip install -r requirements.txt
-mkdir -p /data/working/saeid/SharpNet/logs
-mkdir -p /data/working/saeid/SharpNet/checkpoints
-ln -s /data/working/saeid/SharpNet/logs logs
-ln -s /data/working/saeid/SharpNet/checkpoints checkpoints
+mkdir -p logs
+mkdir -p checkpoints
+# or the following code if there is not enough space on current directory
+# mkdir -p <log folder in any path>
+# mkdir -p <checkpoints folder in any path>
+# ln -s /data/working/saeid/SharpNet/logs logs
+# ln -s /data/working/saeid/SharpNet/checkpoints checkpoints
 mkdir datasets
 cd datasets
 ln -s /datasets/replica_depth/ replica
@@ -58,7 +61,7 @@ Put the trained weights in the models/ directory.
 Try the [demo.py](https://github.com/MichaelRamamonjisoa/SharpNet/blob/master/demo.py) 
 script to test our network on your image :
 
-```
+```bash
 python3 demo.py --image $YOURIMAGEPATH \
 --cuda CUDA_DEVICE_ID\
 --model models/final_checkpoint_NYU.pth \
@@ -94,14 +97,14 @@ Therefore exact reproduction of our training procedure cannot be done properly.
 ### Finetuning 
 For finetuning on NYUv2 Depth dataset, you will need the [dataset](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2) and split:
 
-```
+```bash
 wget -O datasets/nyuv2_splits.mat http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
 wget -O datasets/nyu_depth_v2_labeled.mat http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
 ```
 
 Use the following command to train the network on NYUv2:
 
-```
+```bash
 python3 train.py --dataset NYU \
 --rootdir ../datasets/ \
 -b BATCH_SIZE \
@@ -131,7 +134,7 @@ You can find our manually annotated dataset used for occluding contour quality e
 ### Run the code
 Run the evaluation code using:
 
-```
+```bash
 python3 eval.py \
 --rootdir DIR_CONTAINING_ALL_PREDICTIONS \
 --cuda CUDA_DEVICE_ID \
