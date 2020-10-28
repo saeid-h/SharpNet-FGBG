@@ -350,14 +350,12 @@ def main():
     t = []
     torch.manual_seed(329)
 
-    bias = True if args.bias else False
-
     # build model
     model = SharpNet(ResBlock, [3, 4, 6, 3], [2, 2, 2, 2, 2],
                      use_normals=True if args.normals else False,
                      use_depth=True if args.depth else False,
                      use_boundary=True if args.boundary else False,
-                     bias_decoder=bias)
+                     bias_decoder=args.bias)
 
     model_dict = model.state_dict()
 
@@ -455,12 +453,12 @@ def main():
 
     train_dataloader, val_dataloader = get_trainval_splits(args)
 
-    for epoch in range(args.max_epoch):
+    for epoch in range(args.start_epoch, args.max_epoch):
         if args.optimizer == 'SGD':
             adjust_learning_rate(args.learning_rate, args.lr_mode, args.gradient_step, args.max_epoch,
                                  optimizer, epoch)
 
-        train_epoch(train_dataloader, val_dataloader, model, sharpnet_loss, optimizer, args.start_epoch + epoch,
+        train_epoch(train_dataloader, val_dataloader, model, sharpnet_loss, optimizer, epoch,
                     train_writer, val_writer,
                     train_loss_meter, val_loss_meter,
                     depth_loss_meter, grad_loss_meter,
@@ -472,16 +470,16 @@ def main():
         if epoch % 2 == 0 and epoch > int(0.9 * args.max_epoch):
             torch.save(
                 model.state_dict(),
-                os.path.join(cp_dir, 'checkpoint_{}_final.pth'.format(args.start_epoch + epoch)),
+                os.path.join(cp_dir, 'checkpoint_{}_final.pth'.format(epoch)),
             )
         elif epoch % 10 == 0:
             torch.save(
                 model.state_dict(),
-                os.path.join(cp_dir, 'checkpoint_{}_final.pth'.format(args.start_epoch + epoch)),
+                os.path.join(cp_dir, 'checkpoint_{}_final.pth'.format(epoch)),
             )
     torch.save(
         model.state_dict(),
-        os.path.join(cp_dir, 'checkpoint_{}_final.pth'.format(args.start_epoch + args.max_epoch)),
+        os.path.join(cp_dir, 'checkpoint_{}_final.pth'.format(args.max_epoch)),
     )
 
     return None
