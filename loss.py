@@ -406,5 +406,5 @@ class OcclusionLoss(nn.Module):
     def forward(self, o_pred_logit, o_gt, occ_region_size=[128,160], occ_corner_point=[192,192]):
         loss_fn = torch.nn.CrossEntropyLoss(size_average=self.size_average, ignore_index=self.ignore_index)
         CP=occ_corner_point; RS=occ_region_size
-        loss = loss_fn(o_pred_logit[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],:], o_gt[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],:])
+        loss = loss_fn(o_pred_logit[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],...], o_gt[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],...])
         return loss
