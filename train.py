@@ -24,7 +24,9 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                 normals_loss_meter,
                 date_str, model_save_path,
                 args,
-                boundary_loss_meter=None, consensus_loss_meter=None):
+                boundary_loss_meter=None, 
+                occ_loss_meter=None,
+                consensus_loss_meter=None):
 
     batch_size = int(args.batch_size)
     iter_size = args.iter_size
@@ -40,6 +42,7 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
         iter_depth_loss = 0
         iter_boundary_loss = 0
         iter_consensus_loss = 0
+        iter_occ_loss = 0
 
         freeze_decoders = args.decoder_freeze.split(',')
         freeze_model_decoders(model, freeze_decoders)
@@ -50,18 +53,33 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
             input, mask_gt, depth_gt, normals_gt, boundary_gt = get_gt_sample(train_loader, loader_iter, args)
             # compute output
             depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
+            # compute occ 
+            if args.occ:
+                q30 = np.quantile(depth_gt.cpu().numpy(),0.3, axis=[1,2]).reshape((depth_gt.shape[0],)+(1,)*len(depth_gt.shape[1:]))
+                q70 = np.quantile(depth_gt.cpu().numpy(),0.7, axis=[1,2]).reshape((depth_gt.shape[0],)+(1,)*len(depth_gt.shape[1:]))
+                ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
+                occ_pred_logit = ref_depth - depth_pred
+                gt_offset = ref_depth - depth_gt
+                occ_gt = torch.where(gt_offset>0, torch.ones_like(depth_gt), torch.zeros_like(depth_gt))
+                occ_gt = torch.where(depth_gt<1e-7, -1*torch.ones_like(depth_gt), occ_gt)
+                occ_gt = occ_gt.type(torch.LongTensor).cuda()
+            else:
+                occ_pred_logit = None
+                occ_gt = None
             # compute loss
-            depth_loss, grad_loss, normals_loss, b_loss, geo_loss = criterion(mask_gt,
+            depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
                                                                               d_pred=depth_pred,
                                                                               d_gt=depth_gt,
+                                                                              o_pred_logit=occ_pred_logit,
+                                                                              o_gt=occ_gt,
                                                                               n_pred=normals_pred,
                                                                               n_gt=normals_gt,
                                                                               b_pred=boundary_pred,
                                                                               b_gt=boundary_gt,
                                                                               use_grad=True)
 
-            loss_real = depth_loss + grad_loss + normals_loss + b_loss + geo_loss
-            loss = 1 * depth_loss + 0.1 * grad_loss + 0.5 * normals_loss + 0.005 * b_loss + 0.5 * geo_loss
+            loss_real = depth_loss + grad_loss + normals_loss + b_loss + geo_loss + occ_loss
+            loss = 1 * depth_loss + 0.1 * grad_loss + 0.5 * normals_loss + 0.005 * b_loss + 0.5 * geo_loss + 0.1 * occ_loss
             loss_real /= float(iter_size)
             loss /= float(iter_size)
 
@@ -76,6 +94,8 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                 iter_boundary_loss += float(b_loss)
             if geo_loss != 0:
                 iter_consensus_loss += float(geo_loss)
+            if occ_loss != 0:
+                iter_occ_loss += float(occ_loss)
 
             loss.backward()
 
@@ -98,6 +118,9 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
         if iter_consensus_loss != 0:
             iter_consensus_loss /= float(iter_size)
             consensus_loss_meter.add(float(iter_consensus_loss))
+        if iter_occ_loss != 0:
+            iter_occ_loss /= float(iter_size)
+            occ_loss_meter.add(float(iter_occ_loss))
 
         train_size = len(train_loader.dataset)
         iter_per_epoch = int(train_size/args.batch_size)
@@ -105,12 +128,13 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
         print("epoch: " + str(epoch) + " | iter: {}/{} ".format(iter_i, iter_per_epoch) + "| Train Loss: " + str(float(iter_loss)))
         train_writer.add_scalar("train_loss", train_loss_meter.value()[0],
                                 int(epoch) * iter_per_epoch + iter_i)
-
+        
         write_loss_components(train_writer, iter_i, epoch, train_size, args,
                               depth_loss_meter, iter_depth_loss,
                               normals_loss_meter, iter_normals_loss,
                               boundary_loss_meter, iter_boundary_loss,
-                              grad_loss_meter, iter_grad_loss,
+                              grad_loss_meter, iter_grad_loss, 
+                              occ_loss_meter, iter_occ_loss, 
                               consensus_loss_meter, iter_consensus_loss)
 
         if (iter_i + 1) % 50 == 0:
@@ -120,6 +144,7 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
             val_normals_loss = 0
             val_boundary_loss = 0
             val_consensus_loss = 0
+            val_occ_loss = 0
 
             val_size = len(val_loader.dataset)
 
@@ -135,16 +160,18 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                     # compute output
                     depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
                     # compute loss
-                    depth_loss, grad_loss, normals_loss, b_loss, geo_loss = criterion(mask_gt,
+                    depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
                                                                                       d_pred=depth_pred,
                                                                                       d_gt=depth_gt,
+                                                                                      o_pred_logit=occ_pred_logit,
+                                                                                      o_gt=occ_gt,
                                                                                       n_pred=normals_pred,
                                                                                       n_gt=normals_gt,
                                                                                       b_pred=boundary_pred,
                                                                                       b_gt=boundary_gt,
                                                                                       use_grad=True)
 
-                    iter_loss = depth_loss + normals_loss + grad_loss + b_loss + geo_loss
+                    iter_loss = depth_loss + normals_loss + grad_loss + b_loss + geo_loss + occ_loss
 
                     iter_loss = float(iter_loss) / 50
                     val_loss += iter_loss
@@ -158,6 +185,8 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                         val_consensus_loss += float(geo_loss) / 50
                     if normals_loss != 0:
                         val_normals_loss += float(normals_loss) / 50
+                    if occ_loss != 0:
+                        val_occ_loss += float(occ_loss) / 50
 
             val_loss_meter.add(val_loss)
             print("epoch: " + str(epoch) + " | iter: {}/{} ".format(iter_i, iter_per_epoch) + "| Val Loss: " + str(
@@ -167,9 +196,10 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
 
             write_loss_components(val_writer, iter_i, epoch, train_size, args,
                                   depth_loss_meter, val_depth_loss,
-                                  normals_loss_meter, val_normals_loss,
+                                  normals_loss_meter, val_normals_loss, 
                                   boundary_loss_meter, val_boundary_loss,
-                                  grad_loss_meter, val_grad_loss,
+                                  grad_loss_meter, val_grad_loss, 
+                                  occ_loss_meter, val_occ_loss,
                                   consensus_loss_meter, val_consensus_loss)
 
             model.train()
@@ -304,6 +334,7 @@ def main():
     parser.add_argument('--boundary', action='store_true',help='Use boundary decoder')
     parser.add_argument('--normals', action='store_true', help='Use normals decoder')
     parser.add_argument('--depth', action='store_true', help='Use depth decoder')
+    parser.add_argument('--occ', action='store_true', help='Use mask refiner decoder')
     parser.add_argument('--consensus', dest='geo_consensus', action='store_true')
     parser.add_argument('--freeze', dest='decoder_freeze', default='', type=str, help='Decoders to freeze (comma seperated)')
     parser.add_argument('--verbose', action='store_true', help='Activate to display loss components terms')
@@ -354,6 +385,7 @@ def main():
     model = SharpNet(ResBlock, [3, 4, 6, 3], [2, 2, 2, 2, 2],
                      use_normals=True if args.normals else False,
                      use_depth=True if args.depth else False,
+                     use_occ=True if args.occ else False,
                      use_boundary=True if args.boundary else False,
                      bias_decoder=args.bias)
 
@@ -403,12 +435,14 @@ def main():
     if args.dataset in ['NYU', 'Replica'] :
         sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
                                      use_depth=True if args.depth else False,
+                                     use_occ=True if args.occ else False,
                                      use_boundary=False,
                                      use_normals=False,
                                      use_geo_consensus=True if args.geo_consensus else False)
     else:
         sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
                                      use_depth=True if args.depth else False,
+                                     use_occ=True if args.occ else False,
                                      use_boundary=True if args.boundary else False,
                                      use_normals=True if args.normals else False,
                                      use_geo_consensus=True if args.geo_consensus else False)
@@ -434,6 +468,7 @@ def main():
     grad_loss_meter = MovingAverageValueMeter(3) if args.depth else None
     boundary_loss_meter = MovingAverageValueMeter(3) if args.boundary and args.dataset != 'NYU' else None
     consensus_loss_meter = MovingAverageValueMeter(3) if args.geo_consensus else None
+    occ_loss_meter = MovingAverageValueMeter(3) if args.occ else None
 
     exp_name = args.experiment_name if args.experiment_name is not None else ''
     print('Experiment Name: {}'.format(exp_name))
@@ -464,7 +499,8 @@ def main():
                     depth_loss_meter, grad_loss_meter,
                     normals_loss_meter,
                     date_str=date_str, model_save_path=cp_dir,
-                    args=args, boundary_loss_meter=boundary_loss_meter, consensus_loss_meter=consensus_loss_meter)
+                    args=args, boundary_loss_meter=boundary_loss_meter,
+                    occ_loss_meter=occ_loss_meter, consensus_loss_meter=consensus_loss_meter)
 
         # Save a model
         if epoch % 2 == 0 and epoch > int(0.9 * args.max_epoch):

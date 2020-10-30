@@ -4,6 +4,91 @@ from torch import log as thLog
 from torch.autograd import Variable
 from torch import Tensor, mul, dot, ones
 from torch.nn import functional as F
+import numpy as np
+
+
+class SharpNetLoss(nn.Module):
+    def __init__(self, lamb, mu, use_depth=False, use_normals=False, use_occ=False,
+                 use_boundary=False, use_geo_consensus=False):
+        super(SharpNetLoss, self).__init__()
+
+        self.lamb = lamb
+        self.mu = mu
+        self.use_normals = use_normals
+        self.use_depth = use_depth
+        self.use_occ = use_occ
+        self.use_boundary_loss = use_boundary
+        self.use_geo_consensus = use_geo_consensus
+
+        self.masked_spatial_gradients_loss = SpatialGradientsLoss(clamp_value=1e-7,
+                                                                  size_average=True,
+                                                                  gradient_loss_on=True,
+                                                                  smooth_error=True)
+
+        if self.use_depth:
+            self.masked_depth_loss = LainaBerHuLoss(use_logs=True)
+
+        if self.use_boundary_loss:
+            self.boundary_loss = DoobNetLoss(beta=4, gamma=0.5, sigma=3)
+
+        if self.use_geo_consensus:
+            self.norm_depth_bound_consensus_loss = NormalDepthConsensusLoss()
+            self.depth_bound_consensus_loss = DepthBoundaryConsensusLoss()
+
+        if self.use_occ:
+            self.occlusion_loss = OcclusionLoss()
+
+    def forward(self, mask_gt,
+                d_pred=None, d_gt=None,
+                o_pred_logit=None, o_gt=None,
+                n_pred=None, n_gt=None,
+                b_pred=None, b_gt=None,
+                val=False, use_grad=False):
+
+        d_loss = 0
+        occ_loss = 0
+        n_loss = 0
+        grad_loss = 0
+        b_loss = 0
+        geo_loss = 0
+
+        if len(mask_gt.shape) != 4:
+            mask_gt = mask_gt.unsqueeze(1)
+
+        mask_gt_valid = mask_gt[:, 0, ...].unsqueeze(1)
+
+        if d_pred is not None:
+            d_gt = d_gt.unsqueeze(1)
+            # if not use_occ:
+            d_loss = self.masked_depth_loss(d_pred, d_gt, mask_gt_valid)
+
+            if use_grad:
+                grad_loss = self.masked_spatial_gradients_loss(d_pred, d_gt, mask_gt_valid)
+            else:
+                grad_loss = 0
+
+        if o_pred_logit is not None:
+            occ_loss = self.occlusion_loss(o_pred_logit, o_gt)
+        
+        if n_pred is not None:
+            n_loss = normals_loss(n_pred, n_gt, mask_gt_valid)
+
+        if self.use_boundary_loss:
+            b_loss = self.boundary_loss(b_pred, b_gt)
+            b_loss = 0.01 * b_loss
+
+        if self.use_geo_consensus:
+            db_loss = 0
+            ndb_loss = 0
+
+            if d_pred is not None and b_pred is not None:
+                db_loss = self.depth_bound_consensus_loss(d_pred, b_pred)
+            if n_pred is not None and d_pred is not None and b_pred is not None:
+                ndb_loss = self.norm_depth_bound_consensus_loss(n_pred, d_pred, b_pred)
+
+            geo_loss = db_loss + ndb_loss
+
+        return d_loss, grad_loss, n_loss, b_loss, geo_loss, occ_loss
 
 
 class DoobNetLoss(nn.Module):
@@ -42,83 +127,8 @@ class DoobNetLoss(nn.Module):
         return (1.0 / N) * loss
 
 
-class SharpNetLoss(nn.Module):
-    def __init__(self, lamb, mu, use_depth=False, use_normals=False,
-                 use_boundary=False, use_geo_consensus=False):
-        super(SharpNetLoss, self).__init__()
-
-        self.lamb = lamb
-        self.mu = mu
-        self.use_normals = use_normals
-        self.use_depth = use_depth
-        self.use_boundary_loss = use_boundary
-        self.use_geo_consensus = use_geo_consensus
-
-        self.masked_spatial_gradients_loss = SpatialGradientsLoss(clamp_value=1e-7,
-                                                                  size_average=True,
-                                                                  gradient_loss_on=True,
-                                                                  smooth_error=True)
-
-        if self.use_depth:
-            self.masked_depth_loss = LainaBerHuLoss(use_logs=True)
-
-        if self.use_boundary_loss:
-            self.boundary_loss = DoobNetLoss(beta=4, gamma=0.5, sigma=3)
-
-        if self.use_geo_consensus:
-            self.norm_depth_bound_consensus_loss = NormalDepthConsensusLoss()
-            self.depth_bound_consensus_loss = DepthBoundaryConsensusLoss()
-
-    def forward(self, mask_gt,
-                d_pred=None, d_gt=None,
-                n_pred=None, n_gt=None,
-                b_pred=None, b_gt=None,
-                val=False, use_grad=False):
-
-        d_loss = 0
-        n_loss = 0
-        grad_loss = 0
-        b_loss = 0
-        geo_loss = 0
-
-        if len(mask_gt.shape) != 4:
-            mask_gt = mask_gt.unsqueeze(1)
-
-        mask_gt_valid = mask_gt[:, 0, ...].unsqueeze(1)
-
-        if d_pred is not None:
-            d_gt = d_gt.unsqueeze(1)
-            d_loss = self.masked_depth_loss(d_pred, d_gt, mask_gt_valid)
-
-            if use_grad:
-                grad_loss = self.masked_spatial_gradients_loss(d_pred, d_gt, mask_gt_valid)
-            else:
-                grad_loss = 0
-
-        if n_pred is not None:
-            n_loss = normals_loss(n_pred, n_gt, mask_gt_valid)
-
-        if self.use_boundary_loss:
-            b_loss = self.boundary_loss(b_pred, b_gt)
-            b_loss = 0.01 * b_loss
-
-        if self.use_geo_consensus:
-            db_loss = 0
-            ndb_loss = 0
-
-            if d_pred is not None and b_pred is not None:
-                db_loss = self.depth_bound_consensus_loss(d_pred, b_pred)
-            if n_pred is not None and d_pred is not None and b_pred is not None:
-                ndb_loss = self.norm_depth_bound_consensus_loss(n_pred, d_pred, b_pred)
-
-            geo_loss = db_loss + ndb_loss
-
-        return d_loss, grad_loss, n_loss, b_loss, geo_loss
-
-
 class LainaBerHuLoss(nn.Module):
     # Based on Laina et al.
-
     def __init__(self, size_average=True, use_logs=True, clamp_val=1e-9):
         super(LainaBerHuLoss, self).__init__()
         self.size_average = size_average
@@ -359,3 +369,42 @@ class NormalDepthConsensusLoss(nn.Module):
         prod = torch.abs(mul(prod, (-1.0) * thLog(boundary.clamp(min=self.clamp_value))))
 
         return prod.mean()
+
+
+# class ClassificationLoss(nn.Module):
+#     def __init__(self, size_average=True, clamp_value=1e-7, ignore_index=-1):
+#         super(ClassificationLoss, self).__init__()
+#         self.size_average = size_average
+#         self.clamp_value = clamp_value
+#         self.ignore_index = ignore_index
+
+#     def forward(self, d_pred, d_gt, mask=None):
+#         ref_depth = torch.cat(tuple(torch.median(d_gt[i,...]).view((1,)*len(d_gt.shape)) for i in range(d_gt.shape[0])), 0)
+
+#         d_offset = ref_depth - d_pred
+#         gt_offset = ref_depth - d_gt
+
+#         zeros = torch.zeros_like(d_gt)
+#         ones = torch.ones_like(d_gt)
+#         d_mask = torch.where(d_offset>0, ones, zeros)
+#         gt_mask = torch.where(gt_offset>0, ones, zeros)
+#         gt_mask = torch.where(d_gt<self.clamp_value, self.ignore_index*ones, gt_mask)
+        
+#         loss_fn = torch.nn.CrossEntropyLoss(size_average=self.size_average, ignore_index=self.ignore_index, reduction='mean')
+#         loss = loss_fn(d_mask, gt_mask)
+
+#         return loss
+
+
+class OcclusionLoss(nn.Module):
+    def __init__(self, size_average=True, clamp_value=1e-7, ignore_index=-1):
+        super(OcclusionLoss, self).__init__()
+        self.size_average = size_average
+        self.clamp_value = clamp_value
+        self.ignore_index = ignore_index
+
+    def forward(self, o_pred_logit, o_gt, occ_region_size=[128,160], occ_corner_point=[192,192]):
+        loss_fn = torch.nn.CrossEntropyLoss(size_average=self.size_average, ignore_index=self.ignore_index)
+        CP=self.occ_corner_point; RS=self.occ_region_size
+        loss = loss_fn(o_pred_logit[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],:], o_gt[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],:])
+        return loss

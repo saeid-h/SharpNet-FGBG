@@ -28,6 +28,7 @@ class GeoDataset(Dataset):
     def __init__(self, img_list, root_dir='', img_size=480, transforms=None,
                  use_boundary=False,
                  use_depth=True,
+                 use_occ=False,
                  use_normals=True,
                  input_type='image'):
 
@@ -41,6 +42,7 @@ class GeoDataset(Dataset):
         self.img_size = img_size
         self.use_boundary = use_boundary
         self.use_depth = use_depth
+        self.use_occ=use_occ,
         self.use_normals = use_normals
         self.input_type = input_type
 
@@ -192,12 +194,14 @@ class NYUDataset(GeoDataset):
     def __init__(self, dataset_path, split_type='train', root_dir='', img_size=480, transforms=None,
                  use_boundary=False,
                  use_depth=True,
+                 use_occ=False,
                  use_normals=True,
                  input_type='image'):
         super(NYUDataset, self).__init__(img_list=None, root_dir=root_dir, img_size=img_size,
                                          transforms=transforms,
                                          use_boundary=use_boundary,
                                          use_depth=use_depth,
+                                         use_occ=use_occ,
                                          use_normals=use_normals,
                                          input_type=input_type)
 
@@ -245,11 +249,13 @@ class ReplicaDataset(GeoDataset):
     def __init__(self, img_list, root_dir='', img_size=512, transforms=None,
                  use_boundary=False,
                  use_depth=True,
+                 use_occ=False,
                  use_normals=True,
                  input_type='image'):
         super(ReplicaDataset, self).__init__(img_list, root_dir=root_dir, img_size=img_size,
                                           transforms=transforms,
                                           use_boundary=use_boundary,
+                                          use_occ=use_occ,
                                           use_depth=use_depth,
                                           use_normals=use_normals,
                                           input_type=input_type)
@@ -275,7 +281,7 @@ class ReplicaDataset(GeoDataset):
         mask_valid = Mask(data=mask_valid.copy())
         image = InputImage(data=image)
 
-        if self.use_depth:
+        if self.use_depth or self.use_occ:
             depth_name = self.depth_list[idx]
             depth_path = os.path.join(self.root_dir, depth_name)
             data = depth_read(depth_path) / 65.535 

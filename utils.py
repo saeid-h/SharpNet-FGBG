@@ -174,6 +174,7 @@ def write_loss_components(tb_writer, iteration, epoch, dataset_size, args,
                           normals_loss_meter=None, normals_loss=None,
                           boundary_loss_meter=None, boundary_loss=None,
                           grad_loss_meter=None, grad_loss=None,
+                          occ_loss_meter=None, occ_loss=None,
                           consensus_loss_meter=None, consensus_loss=None):
 
     if args.normals and normals_loss_meter is not None:
@@ -199,13 +200,18 @@ def write_loss_components(tb_writer, iteration, epoch, dataset_size, args,
             print('Consensus loss: ' + str(float(consensus_loss)))
         tb_writer.add_scalar("consensus loss", consensus_loss_meter.value()[0],
                              int(epoch) * int(dataset_size / args.batch_size) + iteration)
+    if args.occ and occ_loss_meter is not None:
+        if args.verbose:
+            print('Occlusion loss: ' + str(float(occ_loss)))
+        tb_writer.add_scalar("Occlusion loss", occ_loss_meter.value()[0],
+                             int(epoch) * int(dataset_size / args.batch_size) + iteration)
 
 
 def get_tensor_preds(input, model, args):
     depth_pred = None
     normals_pred = None
     boundary_pred = None
-    if args.depth:
+    if args.depth or args.occ:
         if args.boundary and args.normals:
             depth_pred, normals_pred, boundary_pred = model(input)
         elif args.boundary and not args.normals:

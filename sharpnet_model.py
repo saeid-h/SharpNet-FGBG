@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from resnet import resnet50, conv3x3, conv1x1
 import torch.nn.functional as F
+import numpy as np
 
 
 class Decoder(nn.Module):
@@ -73,7 +74,6 @@ class Decoder(nn.Module):
             m.eval()
 
     def forward(self, resized_resnet_outputs, input_image):
-
         # upconv4
         if self.interpolation == 'bilinear':
             resized_resnet_outputs[4] = F.interpolate(resized_resnet_outputs[4],
@@ -141,6 +141,7 @@ class SharpNet(nn.Module):
     def __init__(self, block, layers_encoder, layers_decoders,
                  use_normals=False,
                  use_depth=False,
+                 use_occ=False,
                  use_boundary=False, bias_decoder=True):
         super(SharpNet, self).__init__()
 
@@ -150,8 +151,11 @@ class SharpNet(nn.Module):
             print('Deploying model with depth estimation')
         if use_boundary:
             print('Deploying model with boundary estimation')
+        if use_occ:
+            print('Deploying model with occlusion mask estimation')
 
         self.use_depth = use_depth
+        self.use_occ = use_occ
         self.use_normals = use_normals
         self.use_boundary = use_boundary
 
@@ -167,7 +171,7 @@ class SharpNet(nn.Module):
         self.layer3_img = self._make_res_layer(block, 256, layers_encoder[2], stride=2)
         self.layer4_img = self._make_res_layer(block, 512, layers_encoder[3], stride=1, dilation=2)
 
-        if self.use_depth:
+        if self.use_depth or self.use_occ:
             layers_decoders[0] = int(layers_decoders[0] * 3)
             layers_decoders[1] = int(layers_decoders[1] * 3)
             self.depth_decoder = Decoder(self.inplanes,
@@ -180,6 +184,15 @@ class SharpNet(nn.Module):
 
             layers_decoders[0] = int(layers_decoders[0] / 3)
             layers_decoders[1] = int(layers_decoders[1] / 3)
+
+        # if self.use_occ:
+        #     self.occ_decoder = Decoder(self.inplanes,
+        #                                     in_channels=[1024, 512, 256, 64, 16],
+        #                                     out_channels=1,
+        #                                     layers_nums=layers_decoders, kernel_size=3,
+        #                                     bias=bias_decoder,
+        #                                     interpolation='nearest',
+        #                                     out_activation='Sigmoid')
 
         if self.use_normals:
             layers_decoders[0] = int(layers_decoders[0] * 2)
@@ -247,24 +260,33 @@ class SharpNet(nn.Module):
         x2 = self.layer2_img(x1)
         x3 = self.layer3_img(x2)
         x4 = self.layer4_img(x3)
-
-        if self.use_normals:
-            x_normals = self.normals_decoder([x_img_out, x1, x2, x3, x4], x_img)
-        else:
-            x_normals = None
-
+            
+        x_normals = None
         x_lf = None
         x_depth = None
         x_mask = None
         x_boundary = None
+        x_occ = None
 
-        if self.use_depth:
+        if self.use_normals:
+            x_normals = self.normals_decoder([x_img_out, x1, x2, x3, x4], x_img)
+
+        if self.use_depth or self.use_occ:
             x_depth = self.depth_decoder([x_img_out, x1, x2, x3, x4], x_img)
+
+        # if self.use_occ:
+        #     q30 = np.quantile(x_depth.numpy(),0.3, axis=[1,2]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
+        #     q70 = np.quantile(x_depth.numpy(),0.7, axis=[1,2]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
+        #     ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70))
+        #     # q30 = np.quantile(x_depth.numpy(),0.3, axis=[1,2])
+        #     # ref_depth = torch.cat(tuple(torch.median(x_depth[i,...]).view((1,)*len(x_depth.shape)) for i in range(x_depth.shape[0])), 0)
+        #     x_occ = torch.sigmoid(ref_depth - x_depth)      
 
         if self.use_boundary:
             x_boundary = self.boundary_decoder([x_img_out, x1, x2, x3, x4], x_img)
 
-        return_list = [x_out for x_out in [x_mask, x_depth, x_lf, x_normals, x_boundary] if x_out is not None]
+        return_list = [x_out for x_out in [x_mask, x_depth, x_lf, x_normals, x_boundary, x_occ] if x_out is not None]
+
         if len(return_list) == 1:
             return return_list[0]
         else:

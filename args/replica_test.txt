@@ -1,16 +1,15 @@
---model checkpoints/Joint/replica_sharpnet_base_24-10-2020_20-15/checkpoint_30_final.pth
+--model checkpoints/Joint/checkpoint_160_final.pth
 --data_path datasets/replica/image_left/
 --gt_path datasets/replica/depth_left/
 --filenames_file lists/replica_test_files_with_gt.txt
 --cuda 0
 --save_path results/
---crop
 --edges
 --normals
 --depth
 --boundary
 --bias
 --dataset replica
---model_name replica_sharpnet_base
+--model_name replica_sharpnet_base_160
 
 

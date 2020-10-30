@@ -11,6 +11,6 @@
 --depth 
 --freeze normals,boundary 
 --pretrained-model models/final_checkpoint_PBRS_consensus.pth 
---lr 1e-4 
+--lr 8e-3 
 --start_epoch 80
 --max-epoch 160

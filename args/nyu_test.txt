@@ -1,4 +1,4 @@
---model models/final_checkpoint_NYU.pth
+--model models/nyu_sharpnet_base.pth
 --data_path datasets/nyu_splits/test/
 --gt_path datasets/nyu_splits/test/
 --filenames_file lists/nyudepthv2_test_files_with_gt.txt
