@@ -33,10 +33,13 @@ provide sharper normals and contours predictions.
 ```bash
 git clone https://github.com/saeid-h/SharpNet-OCC.git
 cd SharpNet
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt-get update
-sudo apt-get install python3.6
+# if you do not have python3.6, install it as follows:
+# sudo add-apt-repository ppa:deadsnakes/ppa
+# sudo apt-get update
+# sudo apt-get install python3.6
+# Make virtual environment
 virtualenv -p /usr/bin/python3.6 SharpNet
+# Activate the environment
 source SharpNet/bin/activate
 pip install -r requirements.txt
 mkdir -p logs
@@ -44,11 +47,11 @@ mkdir -p checkpoints
 # or the following code if there is not enough space on current directory
 # mkdir -p <log folder in any path>
 # mkdir -p <checkpoints folder in any path>
-# ln -s /data/working/saeid/SharpNet/logs logs
-# ln -s /data/working/saeid/SharpNet/checkpoints checkpoints
+# ln -s <log folder in any path> logs
+# ln -s <checkpoints folder in any path> checkpoints
 mkdir datasets
 cd datasets
-ln -s /datasets/replica_depth/ replica
+ln -s $DATASET_PATH $DATASET_NAME
 cd ..
 mkdir -p models && cd models
 ```
