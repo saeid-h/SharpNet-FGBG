@@ -58,11 +58,11 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                 q30 = np.quantile(depth_gt.cpu().numpy(),0.3, axis=[1,2]).reshape((depth_gt.shape[0],)+(1,)*len(depth_gt.shape[1:]))
                 q70 = np.quantile(depth_gt.cpu().numpy(),0.7, axis=[1,2]).reshape((depth_gt.shape[0],)+(1,)*len(depth_gt.shape[1:]))
                 ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
-                occ_pred_logit = ref_depth - depth_pred
+                occ_pred_logit = ref_depth - torch.squeeze(depth_pred,1)
                 gt_offset = ref_depth - depth_gt
                 occ_gt = torch.where(gt_offset>0, torch.ones_like(depth_gt), torch.zeros_like(depth_gt))
                 occ_gt = torch.where(depth_gt<1e-7, -1*torch.ones_like(depth_gt), occ_gt)
-                occ_gt = occ_gt.type(torch.LongTensor).cuda()
+                occ_gt = occ_gt.type(torch.DoubleTensor).cuda()
             else:
                 occ_pred_logit = None
                 occ_gt = None

@@ -10,7 +10,7 @@
 --normals 
 --depth
 --freeze normals,boundary 
---pretrained-model checkpoints/Joint/replica_sharpnet_base_26-10-2020_18-52/checkpoint_80_final.pth 
+--pretrained-model models/replica_sharpnet_base.pth 
 --lr 8e-3 
 --max-epoch 40
 --occ

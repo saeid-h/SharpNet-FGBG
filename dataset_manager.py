@@ -232,6 +232,8 @@ class NYUDataset(GeoDataset):
         image_new = Image.fromarray(image_new)
         image = InputImage(data=image_new.copy())
 
+        # print ("==============================", image, image_new, crop_ROI)
+
         if self.use_depth:
             data = dataset['depths'][self.idx_list[idx]].swapaxes(0, 1).astype('float32') * 1000 / 65535
             data = data[crop_ROI[0]:crop_ROI[2], crop_ROI[1]:crop_ROI[3]]
