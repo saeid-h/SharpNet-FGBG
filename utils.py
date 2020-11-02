@@ -130,28 +130,15 @@ def get_gt_sample(dataloader, loader_iter, args):
         loader_iter = iter(dataloader)
         data = next(loader_iter)
 
-    if args.depth:
-        if args.boundary and args.normals:
-            if len(data) == 5:
-                # normals and boundary GT
-                input, mask_gt, depth_gt, normals_gt, boundary_gt = data
-            else:
-                # NYU
-                input, mask_gt, depth_gt = data
-                normals_gt = None
-                boundary_gt = None
-        elif args.boundary and not args.normals:
-            input, mask_gt, depth_gt, boundary_gt = data
-        elif args.boundary:
-            input, mask_gt, depth_gt, normals_gt = data
-        else:
-            input, mask_gt, depth_gt = data
+    if len(data) == 5:
+        # normals and boundary GT
+        input, mask_gt, depth_gt, normals_gt, boundary_gt = data
     else:
-        if args.boundary and args.normals:
-            input, mask_gt, normals_gt, boundary_gt = data
-        elif args.normals and not args.boundary:
-            input, mask_gt, normals_gt = data
-
+        # NYU
+        input, mask_gt, depth_gt = data
+        normals_gt = None
+        boundary_gt = None
+    
     input = input.cuda(async=False)
     mask_gt = mask_gt.cuda(async=False)
     if normals_gt is not None:

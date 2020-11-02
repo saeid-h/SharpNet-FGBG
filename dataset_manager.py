@@ -103,18 +103,8 @@ class GeoDataset(Dataset):
                                        std=self.transforms['NORMALIZE']['std'])
                     mode.data = mode.data.float()
 
-            # RGB transforms
-            #
-            # data[0].to_tensor()
-            # if normalize:
-            #     data[0].
-            # for mode in data[1:]:
-            #     if mode is not None:
-            #         mode.to_tensor()
-            #         mode.data = mode.data.float()
-            #         print(type(mode), mode.data.size())
-
-        return tuple([m.data for m in data if m is not None])
+        return [m.data for m in data if m is not None]
+        
 
     def __getitem__(self, idx):
         # overwrite this function when creating a new dataset
@@ -231,8 +221,6 @@ class NYUDataset(GeoDataset):
 
         image_new = Image.fromarray(image_new)
         image = InputImage(data=image_new.copy())
-
-        # print ("==============================", image, image_new, crop_ROI)
 
         if self.use_depth:
             data = dataset['depths'][self.idx_list[idx]].swapaxes(0, 1).astype('float32') * 1000 / 65535
