@@ -466,12 +466,12 @@ def main():
     occ_loss_meter = MovingAverageValueMeter(3) if args.occ else None
 
     # exp_name = args.experiment_name if args.experiment_name is not None else ''
-    print('Experiment Name: {}'.format(args.exp_name))
+    print('Experiment Name: {}'.format(args.experiment_name))
 
     # log_dir = os.path.join('logs', 'Joint', str(exp_name) + '_' + date_str)
     # cp_dir = os.path.join('checkpoints', 'Joint', str(exp_name) + '_' + date_str)
-    log_dir = os.path.join('logs', 'Joint', str(args.exp_name))
-    cp_dir = os.path.join('checkpoints', 'Joint', str(args.exp_name))
+    log_dir = os.path.join('logs', 'Joint', str(args.experiment_name))
+    cp_dir = os.path.join('checkpoints', 'Joint', str(args.experiment_name))
     print('Checkpoint Directory: {}'.format(cp_dir))
 
     train_writer = SummaryWriter(os.path.join(log_dir, 'train'))
