@@ -67,7 +67,7 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                                                                               n_gt=normals_gt,
                                                                               b_pred=boundary_pred,
                                                                               b_gt=boundary_gt,
-                                                                              use_grad=True)
+                                                                              use_grad=args.use_grad)
 
             loss_real = depth_loss + grad_loss + normals_loss + b_loss + geo_loss + occ_loss
             loss = 1 * depth_loss + 0.1 * grad_loss + 0.5 * normals_loss + 0.005 * b_loss + 0.5 * geo_loss + 0.1 * occ_loss
@@ -160,7 +160,7 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                                                                                       n_gt=normals_gt,
                                                                                       b_pred=boundary_pred,
                                                                                       b_gt=boundary_gt,
-                                                                                      use_grad=True)
+                                                                                      use_grad=args.use_grad)
 
                     iter_loss = depth_loss + normals_loss + grad_loss + b_loss + geo_loss + occ_loss
 
@@ -325,6 +325,7 @@ def main():
     parser.add_argument('--boundary', action='store_true',help='Use boundary decoder')
     parser.add_argument('--normals', action='store_true', help='Use normals decoder')
     parser.add_argument('--depth', action='store_true', help='Use depth decoder')
+    parser.add_argument('--grad', dest='use_grad', action='store_true', help='Use gradient loss')
     parser.add_argument('--occ', action='store_true', help='Use mask refiner decoder')
     parser.add_argument('--occ_type',      type=str,   help='the method that occ loss applies to the model', default='depth')
     parser.add_argument('--consensus', dest='geo_consensus', action='store_true')

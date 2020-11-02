@@ -7,7 +7,7 @@
 --bias 
 --depth 
 --pretrained-model models/nyu_sharpnet_base.pth 
---lr 5e-3 
+--lr 1e-3 
 --max-epoch 160
 --occ
 --occ_type trimap
