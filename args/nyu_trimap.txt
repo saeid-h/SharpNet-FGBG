@@ -1,4 +1,4 @@
---exp_name nyu_sharpnet_docc
+--exp_name nyu_sharpnet_trimap
 --dataset NYU 
 --rootdir datasets 
 --batch-size 4 
@@ -11,7 +11,8 @@
 --depth 
 --freeze normals,boundary 
 --pretrained-model models/nyu_sharpnet_base.pth 
---lr 8e-3 
+--lr 5e-3 
 --max-epoch 160
 --occ
+--occ_type trimap
 

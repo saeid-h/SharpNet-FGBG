@@ -14,7 +14,7 @@ class MaskRefiner(nn.Module):
     def __init__(self, input_channel=1, filters=16, bias=True):
         super(MaskRefiner, self).__init__()
 
-        self.conv5x5 = nn.Conv2d(input_channel, filters, kernel_size=5, stride=1, padding=1, bias=bias)
+        self.conv5x5 = nn.Conv2d(input_channel, filters, kernel_size=5, stride=1, padding=2, bias=bias)
         self.res_block_1 = nn.Sequential(*[nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias),
                             nn.ReLU(inplace=True),
                             nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias)])
@@ -180,7 +180,7 @@ class SharpNet(nn.Module):
     def __init__(self, block, layers_encoder, layers_decoders, depth_gt=None,
                  use_normals=False,
                  use_depth=False,
-                 use_occ=False,
+                 use_occ=False, occ_type='depth',
                  use_boundary=False, bias_decoder=True):
         super(SharpNet, self).__init__()
 
@@ -197,6 +197,7 @@ class SharpNet(nn.Module):
         self.use_occ = use_occ
         self.use_normals = use_normals
         self.use_boundary = use_boundary
+        self.occ_type = occ_type
 
         # ResNet encoder
         self.conv1_img = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)  # 3 (RGB) * 7x7 * 64
@@ -225,7 +226,9 @@ class SharpNet(nn.Module):
             layers_decoders[1] = int(layers_decoders[1] / 3)
 
         if self.use_occ:
-            self.mask_refiner = MaskRefiner(input_channel=1, filters=16, bias=bias_decoder)
+            self.mask_refiner = MaskRefiner(input_channel=1+1+64, filters=16, bias=bias_decoder)
+            self.img_feat_ext = nn.Sequential(*[nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3, bias=False),
+                            nn.BatchNorm2d(64), nn.ReLU(inplace=True)])
 
         if self.use_normals:
             layers_decoders[0] = int(layers_decoders[0] * 2)
@@ -309,30 +312,33 @@ class SharpNet(nn.Module):
             x_depth = self.depth_decoder([x_img_out, x1, x2, x3, x4], x_img)
 
         if self.use_occ:
-            d_gt = torch.unsqueeze(d_gt, 1)
-            q30 = np.quantile(d_gt.cpu().numpy(),0.3, axis=[2,3]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
-            q70 = np.quantile(d_gt.cpu().numpy(),0.7, axis=[2,3]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
+            occ_region_size=[128,160]; occ_corner_point=[96,80]
+            CP=occ_corner_point; RS=occ_region_size
+            x_img_out_feat = self.img_feat_ext(x_img)
+            x_img_out_feat = x_img_out_feat[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
+            d_gt_ROI = torch.unsqueeze(d_gt, 1)[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
+            x_depth_ROI = x_depth[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
+            q30 = np.quantile(d_gt_ROI.cpu().numpy(),0.3, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
+            q70 = np.quantile(d_gt_ROI.cpu().numpy(),0.7, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
             ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
-            gt_offset = ref_depth - d_gt
-            occ_gt = torch.where(gt_offset>0, torch.ones_like(d_gt), torch.zeros_like(d_gt))
-            occ_gt = torch.where(d_gt<1e-7, -1*torch.ones_like(d_gt), occ_gt)
+            gt_offset = ref_depth - d_gt_ROI
+            occ_gt = torch.where(gt_offset>0, torch.ones_like(d_gt_ROI), torch.zeros_like(d_gt_ROI))
+            occ_gt = torch.where(d_gt_ROI<1e-7, -1*torch.ones_like(d_gt_ROI), occ_gt)
             occ_gt = occ_gt.cuda()
 
-            x_occ_init = (ref_depth - x_depth).type(torch.cuda.FloatTensor)
-            ones = torch.ones_like(x_occ_init)
-            trimap = torch.where(x_occ_init < ref_depth-0.02, ones, 0.5*ones)
-            trimap = torch.where(x_occ_init < ref_depth+0.02, trimap, torch.zeros_like(x_occ_init))
-            x_occ_init = trimap
-            x_occ_final = self.mask_refiner(x_occ_init)
+            x_occ_init = (ref_depth - x_depth_ROI).type(torch.cuda.FloatTensor)
+            if self.occ_type == 'trimap':
+                ones = torch.ones_like(x_occ_init)
+                trimap = torch.where(x_occ_init < ref_depth-0.02, ones, 0.5*ones)
+                trimap = torch.where(x_occ_init < ref_depth+0.02, trimap, torch.zeros_like(x_occ_init))
+                x_occ_init = trimap
+            if self.occ_type == 'tanh':
+                x = x_occ_init
+                x_occ_init = torch.where(x>0,0.25*torch.tanh(1000*x-15)+0.75,0.25*torch.tanh(1000*x+15)+0.25)
+            occ_input = torch.cat([x_occ_init, x_depth_ROI, x_img_out_feat], 1)
+            x_occ_final = self.mask_refiner(occ_input)
 
         if self.use_boundary:
             x_boundary = self.boundary_decoder([x_img_out, x1, x2, x3, x4], x_img)
 
         return x_mask, x_depth, x_lf, x_normals, x_boundary, x_occ_init, x_occ_final, occ_gt
-
-        # return_list = [x_out for x_out in [x_mask, x_depth, x_lf, x_normals, x_boundary, x_occ_init, x_occ_final] if x_out is not None]
-
-        # if len(return_list) == 1:
-        #     return return_list[0]
-        # else:
-        #     return tuple(return_list)

@@ -150,7 +150,6 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                     input, mask_gt, depth_gt, normals_gt, boundary_gt = get_gt_sample(val_loader, loader_iter, args)
                     # compute output
                     x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt)
-                    # depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
                     # compute loss
                     depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
                                                                                       d_pred=depth_pred,
@@ -327,6 +326,7 @@ def main():
     parser.add_argument('--normals', action='store_true', help='Use normals decoder')
     parser.add_argument('--depth', action='store_true', help='Use depth decoder')
     parser.add_argument('--occ', action='store_true', help='Use mask refiner decoder')
+    parser.add_argument('--occ_type',      type=str,   help='the method that occ loss applies to the model', default='depth')
     parser.add_argument('--consensus', dest='geo_consensus', action='store_true')
     parser.add_argument('--freeze', dest='decoder_freeze', default='', type=str, help='Decoders to freeze (comma seperated)')
     parser.add_argument('--verbose', action='store_true', help='Activate to display loss components terms')
@@ -378,6 +378,7 @@ def main():
                      use_normals=True if args.normals else False,
                      use_depth=True if args.depth else False,
                      use_occ=True if args.occ else False,
+                     occ_type=args.occ_type,
                      use_boundary=True if args.boundary else False,
                      bias_decoder=args.bias)
 
@@ -428,6 +429,7 @@ def main():
         sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
                                      use_depth=True if args.depth else False,
                                      use_occ=True if args.occ else False,
+                                     occ_type=args.occ_type,
                                      use_boundary=False,
                                      use_normals=False,
                                      use_geo_consensus=True if args.geo_consensus else False)
@@ -435,6 +437,7 @@ def main():
         sharpnet_loss = SharpNetLoss(lamb=0.5, mu=1.0,
                                      use_depth=True if args.depth else False,
                                      use_occ=True if args.occ else False,
+                                     occ_type=args.occ_type,
                                      use_boundary=True if args.boundary else False,
                                      use_normals=True if args.normals else False,
                                      use_geo_consensus=True if args.geo_consensus else False)

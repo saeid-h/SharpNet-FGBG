@@ -8,7 +8,8 @@ import numpy as np
 
 
 class SharpNetLoss(nn.Module):
-    def __init__(self, lamb, mu, use_depth=False, use_normals=False, use_occ=False,
+    def __init__(self, lamb, mu, use_depth=False, use_normals=False, 
+                use_occ=False, occ_type='depth',
                  use_boundary=False, use_geo_consensus=False):
         super(SharpNetLoss, self).__init__()
 
@@ -17,6 +18,7 @@ class SharpNetLoss(nn.Module):
         self.use_normals = use_normals
         self.use_depth = use_depth
         self.use_occ = use_occ
+        self.occ_type = occ_type
         self.use_boundary_loss = use_boundary
         self.use_geo_consensus = use_geo_consensus
 
@@ -60,7 +62,8 @@ class SharpNetLoss(nn.Module):
         if d_pred is not None:
             d_gt = d_gt.unsqueeze(1)
             # if not use_occ:
-            # d_loss = self.masked_depth_loss(d_pred, d_gt, mask_gt_valid) ##########
+            if self.occ_type == 'depth':
+                d_loss = self.masked_depth_loss(d_pred, d_gt, mask_gt_valid)
 
             if use_grad:
                 grad_loss = self.masked_spatial_gradients_loss(d_pred, d_gt, mask_gt_valid)
@@ -377,16 +380,12 @@ class OcclusionLoss(nn.Module):
         self.size_average = size_average
         self.clamp_value = clamp_value
         self.ignore_index = ignore_index
+        self.loss_fn = torch.nn.BCELoss()
 
-    def forward(self, o_pred_logit, o_gt, occ_region_size=[128,160], occ_corner_point=[96,80]):
-        loss_fn = torch.nn.BCELoss()
-        CP=occ_corner_point; RS=occ_region_size
-        o_pred_logit = o_pred_logit[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
-        o_gt = o_gt[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
+    def forward(self, o_pred_logit, o_gt):
         o_pred = torch.sigmoid(o_pred_logit)
         mask = ~o_gt.eq(self.ignore_index)
-        o_gt = torch.masked_select(o_gt, mask) #.type(torch.DoubleTensor)
-        o_pred = torch.masked_select(o_pred, mask) #.type(torch.DoubleTensor)
-        # print (o_pred, o_gt)
-        loss = loss_fn(o_pred, o_gt) #type(torch.cudaFloatTensor)
+        o_gt = torch.masked_select(o_gt, mask) 
+        o_pred = torch.masked_select(o_pred, mask) 
+        loss = self.loss_fn(o_pred, o_gt) 
         return loss

@@ -207,28 +207,28 @@ def write_loss_components(tb_writer, iteration, epoch, dataset_size, args,
                              int(epoch) * int(dataset_size / args.batch_size) + iteration)
 
 
-def get_tensor_preds(input, model, args):
-    depth_pred = None
-    normals_pred = None
-    boundary_pred = None
-    if args.depth or args.occ:
-        if args.boundary and args.normals:
-            depth_pred, normals_pred, boundary_pred = model(input)
-        elif args.boundary and not args.normals:
-            depth_pred, boundary_pred = model(input)
-        elif args.normals:
-            depth_pred, normals_pred = model(input)
-        else:
-            depth_pred = model(input)
-    else:
-        if args.boundary and args.normals:
-            normals_pred, boundary_pred = model(input)
-        elif args.boundary and not args.normals:
-            boundary_pred = model(input)
-        else:
-            normals_pred = model(input)
+# def get_tensor_preds(input, model, args):
+#     depth_pred = None
+#     normals_pred = None
+#     boundary_pred = None
+#     if args.depth or args.occ:
+#         if args.boundary and args.normals:
+#             depth_pred, normals_pred, boundary_pred = model(input)
+#         elif args.boundary and not args.normals:
+#             depth_pred, boundary_pred = model(input)
+#         elif args.normals:
+#             depth_pred, normals_pred = model(input)
+#         else:
+#             depth_pred = model(input)
+#     else:
+#         if args.boundary and args.normals:
+#             normals_pred, boundary_pred = model(input)
+#         elif args.boundary and not args.normals:
+#             boundary_pred = model(input)
+#         else:
+#             normals_pred = model(input)
 
-    return depth_pred, normals_pred, boundary_pred
+#     return depth_pred, normals_pred, boundary_pred
 
 
 def adjust_learning_rate(lr, lr_mode, step, max_epoch, optimizer, epoch):
