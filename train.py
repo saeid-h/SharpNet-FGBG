@@ -49,28 +49,19 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
 
         # accumulated gradients
         for i in range(iter_size):
+            occ_init_pred = None
+            occ_final_pred = None
+            occ_gt = None
             # get ground truth sample
             input, mask_gt, depth_gt, normals_gt, boundary_gt = get_gt_sample(train_loader, loader_iter, args)
             # compute output
-            depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
-            # compute occ 
-            if args.occ:
-                q30 = np.quantile(depth_gt.cpu().numpy(),0.3, axis=[1,2]).reshape((depth_gt.shape[0],)+(1,)*len(depth_gt.shape[1:]))
-                q70 = np.quantile(depth_gt.cpu().numpy(),0.7, axis=[1,2]).reshape((depth_gt.shape[0],)+(1,)*len(depth_gt.shape[1:]))
-                ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
-                occ_pred_logit = ref_depth - torch.squeeze(depth_pred,1)
-                gt_offset = ref_depth - depth_gt
-                occ_gt = torch.where(gt_offset>0, torch.ones_like(depth_gt), torch.zeros_like(depth_gt))
-                occ_gt = torch.where(depth_gt<1e-7, -1*torch.ones_like(depth_gt), occ_gt)
-                occ_gt = occ_gt.type(torch.DoubleTensor).cuda()
-            else:
-                occ_pred_logit = None
-                occ_gt = None
-            # compute loss
+            x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt)
+            # depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
+            
             depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
                                                                               d_pred=depth_pred,
                                                                               d_gt=depth_gt,
-                                                                              o_pred_logit=occ_pred_logit,
+                                                                              o_pred_logit=occ_final_pred,
                                                                               o_gt=occ_gt,
                                                                               n_pred=normals_pred,
                                                                               n_gt=normals_gt,
@@ -158,12 +149,13 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                     # get ground truth sample
                     input, mask_gt, depth_gt, normals_gt, boundary_gt = get_gt_sample(val_loader, loader_iter, args)
                     # compute output
-                    depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
+                    x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt)
+                    # depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
                     # compute loss
                     depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
                                                                                       d_pred=depth_pred,
                                                                                       d_gt=depth_gt,
-                                                                                      o_pred_logit=occ_pred_logit,
+                                                                                      o_pred_logit=occ_final_pred,
                                                                                       o_gt=occ_gt,
                                                                                       n_pred=normals_pred,
                                                                                       n_gt=normals_gt,

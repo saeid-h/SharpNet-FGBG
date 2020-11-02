@@ -1,4 +1,4 @@
---model checkpoints/Joint/checkpoint_160_final.pth
+--model checkpoints/Joint/replica_sharpnet_docc_31-10-2020_12-38/checkpoint_30_final.pth
 --data_path datasets/replica/image_left/
 --gt_path datasets/replica/depth_left/
 --filenames_file lists/replica_test_files_with_gt.txt
@@ -10,6 +10,6 @@
 --boundary
 --bias
 --dataset replica
---model_name replica_sharpnet_base_160
+--model_name replica_sharpnet_docc_new30
 
 

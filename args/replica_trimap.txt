@@ -1,0 +1,16 @@
+--exp_name replica_sharpnet_docc
+--dataset Replica 
+--rootdir datasets 
+--batch-size 4 
+--cuda 0 
+--cpu 8 
+--bias 
+--consensus 
+--boundary 
+--normals 
+--depth
+--freeze normals,boundary 
+--pretrained-model models/replica_sharpnet_base.pth 
+--lr 8e-3 
+--max-epoch 80
+--occ

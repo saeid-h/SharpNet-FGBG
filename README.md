@@ -7,7 +7,7 @@ by Michaël Ramamonjisoa and Vincent Lepetit.
 Link to the paper: [here](http://openaccess.thecvf.com/content_ICCVW_2019/papers/3DRW/Ramamonjisoa_SharpNet_Fast_and_Accurate_Recovery_of_Occluding_Contours_in_Monocular_ICCVW_2019_paper.pdf)
 
 <p align="center">
-  <img src="architecture.png" width="800"/>
+  <img src="_architecture.png" width="800"/>
 </p>
 
 ### Installation

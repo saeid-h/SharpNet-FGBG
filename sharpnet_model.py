@@ -4,6 +4,47 @@ from resnet import resnet50, conv3x3, conv1x1
 import torch.nn.functional as F
 import numpy as np
 
+# torch.autograd.set_detect_anomaly(True)
+
+def conv3x3(in_planes, out_planes, stride=1, bias=False):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=bias)
+
+class MaskRefiner(nn.Module):
+    def __init__(self, input_channel=1, filters=16, bias=True):
+        super(MaskRefiner, self).__init__()
+
+        self.conv5x5 = nn.Conv2d(input_channel, filters, kernel_size=5, stride=1, padding=1, bias=bias)
+        self.res_block_1 = nn.Sequential(*[nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias),
+                            nn.ReLU(inplace=True),
+                            nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias)])
+        self.res_block_2 = nn.Sequential(*[nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias),
+                            nn.ReLU(inplace=True),
+                            nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias)])
+        self.res_block_3 = nn.Sequential(*[nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias),
+                            nn.ReLU(inplace=True),
+                            nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1, bias=bias)])
+        self.conv3x3_1_4 = nn.Conv2d(filters, filters//4, kernel_size=3, stride=1, padding=1, bias=bias)
+        self.conv3x3_4 = nn.Conv2d(filters//4, 4, kernel_size=3, stride=1, padding=1, bias=bias)
+        self.conv3x3_1 = nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1, bias=bias)
+        self.relu = nn.ReLU(inplace=True)
+        self.filters = filters
+    
+    def forward(self, x):
+        x = self.conv5x5(x)
+        y = self.res_block_1(x)
+        y = self.relu(x + y)
+        y = self.res_block_2(y)
+        y = self.relu(x + y)
+        y = self.res_block_3(y)
+        y = self.relu(y)
+        y = self.conv3x3_1_4(y)
+        y = self.relu(y)
+        y = self.conv3x3_4(y)
+        y = self.relu(y)
+        y = self.conv3x3_1(y)
+        return y
+
 
 class Decoder(nn.Module):
     def __init__(self, inplanes, in_channels=[1024, 512, 256, 64, 16],
@@ -29,9 +70,7 @@ class Decoder(nn.Module):
 
         self.upconv4, self.upconv3, self.upconv2, self.upconv1, self.upconv0, self.conv_out = tuple(decoder_layers)
 
-    def _make_decoder(self, in_channels, out_channels, in_layers_nums, kernel_size=3, bias=True,
-                      out_activation='ReLU'):
-
+    def _make_decoder(self, in_channels, out_channels, in_layers_nums, kernel_size=3, bias=True, out_activation='ReLU'):
         layers_list = []
         for i, convs in enumerate(in_layers_nums):
             layers = []
@@ -138,7 +177,7 @@ class Decoder(nn.Module):
 
 
 class SharpNet(nn.Module):
-    def __init__(self, block, layers_encoder, layers_decoders,
+    def __init__(self, block, layers_encoder, layers_decoders, depth_gt=None,
                  use_normals=False,
                  use_depth=False,
                  use_occ=False,
@@ -185,14 +224,8 @@ class SharpNet(nn.Module):
             layers_decoders[0] = int(layers_decoders[0] / 3)
             layers_decoders[1] = int(layers_decoders[1] / 3)
 
-        # if self.use_occ:
-        #     self.occ_decoder = Decoder(self.inplanes,
-        #                                     in_channels=[1024, 512, 256, 64, 16],
-        #                                     out_channels=1,
-        #                                     layers_nums=layers_decoders, kernel_size=3,
-        #                                     bias=bias_decoder,
-        #                                     interpolation='nearest',
-        #                                     out_activation='Sigmoid')
+        if self.use_occ:
+            self.mask_refiner = MaskRefiner(input_channel=1, filters=16, bias=bias_decoder)
 
         if self.use_normals:
             layers_decoders[0] = int(layers_decoders[0] * 2)
@@ -250,7 +283,7 @@ class SharpNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x_img):
+    def forward(self, x_img, d_gt=None):
         x_img_out = self.conv1_img(x_img)
         x_img_out = self.bn1_img(x_img_out)
         x_img_out = self.relu_img(x_img_out)
@@ -266,7 +299,8 @@ class SharpNet(nn.Module):
         x_depth = None
         x_mask = None
         x_boundary = None
-        x_occ = None
+        x_occ_init = None
+        x_occ_final = None
 
         if self.use_normals:
             x_normals = self.normals_decoder([x_img_out, x1, x2, x3, x4], x_img)
@@ -274,20 +308,31 @@ class SharpNet(nn.Module):
         if self.use_depth or self.use_occ:
             x_depth = self.depth_decoder([x_img_out, x1, x2, x3, x4], x_img)
 
-        # if self.use_occ:
-        #     q30 = np.quantile(x_depth.numpy(),0.3, axis=[1,2]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
-        #     q70 = np.quantile(x_depth.numpy(),0.7, axis=[1,2]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
-        #     ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70))
-        #     # q30 = np.quantile(x_depth.numpy(),0.3, axis=[1,2])
-        #     # ref_depth = torch.cat(tuple(torch.median(x_depth[i,...]).view((1,)*len(x_depth.shape)) for i in range(x_depth.shape[0])), 0)
-        #     x_occ = torch.sigmoid(ref_depth - x_depth)      
+        if self.use_occ:
+            d_gt = torch.unsqueeze(d_gt, 1)
+            q30 = np.quantile(d_gt.cpu().numpy(),0.3, axis=[2,3]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
+            q70 = np.quantile(d_gt.cpu().numpy(),0.7, axis=[2,3]).reshape((x_depth.shape[0],)+(1,)*len(x_depth.shape[1:]))
+            ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
+            gt_offset = ref_depth - d_gt
+            occ_gt = torch.where(gt_offset>0, torch.ones_like(d_gt), torch.zeros_like(d_gt))
+            occ_gt = torch.where(d_gt<1e-7, -1*torch.ones_like(d_gt), occ_gt)
+            occ_gt = occ_gt.cuda()
+
+            x_occ_init = (ref_depth - x_depth).type(torch.cuda.FloatTensor)
+            ones = torch.ones_like(x_occ_init)
+            trimap = torch.where(x_occ_init < ref_depth-0.02, ones, 0.5*ones)
+            trimap = torch.where(x_occ_init < ref_depth+0.02, trimap, torch.zeros_like(x_occ_init))
+            x_occ_init = trimap
+            x_occ_final = self.mask_refiner(x_occ_init)
 
         if self.use_boundary:
             x_boundary = self.boundary_decoder([x_img_out, x1, x2, x3, x4], x_img)
 
-        return_list = [x_out for x_out in [x_mask, x_depth, x_lf, x_normals, x_boundary, x_occ] if x_out is not None]
+        return x_mask, x_depth, x_lf, x_normals, x_boundary, x_occ_init, x_occ_final, occ_gt
 
-        if len(return_list) == 1:
-            return return_list[0]
-        else:
-            return tuple(return_list)
+        # return_list = [x_out for x_out in [x_mask, x_depth, x_lf, x_normals, x_boundary, x_occ_init, x_occ_final] if x_out is not None]
+
+        # if len(return_list) == 1:
+        #     return return_list[0]
+        # else:
+        #     return tuple(return_list)

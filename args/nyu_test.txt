@@ -1,4 +1,4 @@
---model models/nyu_sharpnet_base.pth
+--model checkpoints/Joint/nyu_sharpnet_docc_31-10-2020_12-20/checkpoint_80_final.pth
 --data_path datasets/nyu_splits/test/
 --gt_path datasets/nyu_splits/test/
 --filenames_file lists/nyudepthv2_test_files_with_gt.txt
@@ -10,5 +10,5 @@
 --boundary
 --bias
 --dataset nyu
---model_name nyu_sharpnet_base
+--model_name nyu_sharpnet_docc_new
 

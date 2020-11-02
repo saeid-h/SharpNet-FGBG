@@ -60,7 +60,7 @@ class SharpNetLoss(nn.Module):
         if d_pred is not None:
             d_gt = d_gt.unsqueeze(1)
             # if not use_occ:
-            d_loss = self.masked_depth_loss(d_pred, d_gt, mask_gt_valid)
+            # d_loss = self.masked_depth_loss(d_pred, d_gt, mask_gt_valid) ##########
 
             if use_grad:
                 grad_loss = self.masked_spatial_gradients_loss(d_pred, d_gt, mask_gt_valid)
@@ -371,31 +371,6 @@ class NormalDepthConsensusLoss(nn.Module):
         return prod.mean()
 
 
-# class ClassificationLoss(nn.Module):
-#     def __init__(self, size_average=True, clamp_value=1e-7, ignore_index=-1):
-#         super(ClassificationLoss, self).__init__()
-#         self.size_average = size_average
-#         self.clamp_value = clamp_value
-#         self.ignore_index = ignore_index
-
-#     def forward(self, d_pred, d_gt, mask=None):
-#         ref_depth = torch.cat(tuple(torch.median(d_gt[i,...]).view((1,)*len(d_gt.shape)) for i in range(d_gt.shape[0])), 0)
-
-#         d_offset = ref_depth - d_pred
-#         gt_offset = ref_depth - d_gt
-
-#         zeros = torch.zeros_like(d_gt)
-#         ones = torch.ones_like(d_gt)
-#         d_mask = torch.where(d_offset>0, ones, zeros)
-#         gt_mask = torch.where(gt_offset>0, ones, zeros)
-#         gt_mask = torch.where(d_gt<self.clamp_value, self.ignore_index*ones, gt_mask)
-        
-#         loss_fn = torch.nn.CrossEntropyLoss(size_average=self.size_average, ignore_index=self.ignore_index, reduction='mean')
-#         loss = loss_fn(d_mask, gt_mask)
-
-#         return loss
-
-
 class OcclusionLoss(nn.Module):
     def __init__(self, size_average=True, clamp_value=1e-7, ignore_index=-1):
         super(OcclusionLoss, self).__init__()
@@ -406,11 +381,12 @@ class OcclusionLoss(nn.Module):
     def forward(self, o_pred_logit, o_gt, occ_region_size=[128,160], occ_corner_point=[96,80]):
         loss_fn = torch.nn.BCELoss()
         CP=occ_corner_point; RS=occ_region_size
-        o_pred_logit = o_pred_logit[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],...]
-        o_gt = o_gt[:, CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1],...]
+        o_pred_logit = o_pred_logit[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
+        o_gt = o_gt[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
         o_pred = torch.sigmoid(o_pred_logit)
         mask = ~o_gt.eq(self.ignore_index)
-        o_gt = torch.masked_select(o_gt, mask)
-        o_pred = torch.masked_select(o_pred, mask)
-        loss = loss_fn(o_pred, o_gt)
+        o_gt = torch.masked_select(o_gt, mask) #.type(torch.DoubleTensor)
+        o_pred = torch.masked_select(o_pred, mask) #.type(torch.DoubleTensor)
+        # print (o_pred, o_gt)
+        loss = loss_fn(o_pred, o_gt) #type(torch.cudaFloatTensor)
         return loss
