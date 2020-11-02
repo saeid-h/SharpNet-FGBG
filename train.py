@@ -319,7 +319,7 @@ def get_trainval_splits(args):
 def main():
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description="Train the SharpNet network")
     parser.add_argument('--dataset', '-d', dest='dataset', help='Name of the dataset (MLT, NYUv2 or pix3d)')
-    parser.add_argument('--exp_name', dest='experiment_name', help='Custom name of the experiment', type=str, default=None)
+    parser.add_argument('--exp_name', dest='experiment_name', help='Custom name of the experiment', type=str, default='no_name')
     parser.add_argument('--batch-size', '-b', dest='batch_size', type=int, default=3, help='Batch size')
     parser.add_argument('--iter-size', dest='iter_size', type=int, default=3, help='Iteration size (for accumulated gradients)')
     parser.add_argument('--boundary', action='store_true',help='Use boundary decoder')
@@ -465,11 +465,13 @@ def main():
     consensus_loss_meter = MovingAverageValueMeter(3) if args.geo_consensus else None
     occ_loss_meter = MovingAverageValueMeter(3) if args.occ else None
 
-    exp_name = args.experiment_name if args.experiment_name is not None else ''
-    print('Experiment Name: {}'.format(exp_name))
+    # exp_name = args.experiment_name if args.experiment_name is not None else ''
+    print('Experiment Name: {}'.format(args.exp_name))
 
-    log_dir = os.path.join('logs', 'Joint', str(exp_name) + '_' + date_str)
-    cp_dir = os.path.join('checkpoints', 'Joint', str(exp_name) + '_' + date_str)
+    # log_dir = os.path.join('logs', 'Joint', str(exp_name) + '_' + date_str)
+    # cp_dir = os.path.join('checkpoints', 'Joint', str(exp_name) + '_' + date_str)
+    log_dir = os.path.join('logs', 'Joint', str(args.exp_name))
+    cp_dir = os.path.join('checkpoints', 'Joint', str(args.exp_name))
     print('Checkpoint Directory: {}'.format(cp_dir))
 
     train_writer = SummaryWriter(os.path.join(log_dir, 'train'))
