@@ -304,6 +304,7 @@ class SharpNet(nn.Module):
         x_boundary = None
         x_occ_init = None
         x_occ_final = None
+        occ_gt = None
 
         if self.use_normals:
             x_normals = self.normals_decoder([x_img_out, x1, x2, x3, x4], x_img)
