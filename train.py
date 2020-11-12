@@ -211,7 +211,7 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
 
 def get_trainval_splits(args):
     t = {'SCALE': 2,
-         'CROP': 320,
+        #  'CROP': 320,
          'HORIZONTALFLIP': 1,
          'ROTATE': 6,
          'GAMMA': 0.15,
