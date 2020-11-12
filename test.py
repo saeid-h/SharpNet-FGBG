@@ -79,25 +79,6 @@ def get_pred_from_input(image_pil, gt, args):
     if not gt is None:
         gt_cuda = torch.as_tensor(gt[np.newaxis,:,:]).cuda()
     x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(image, gt_cuda)
-    
-    # print (depth_pred.cpu()-gt-.02)
-    
-    # if args.boundary:
-    #     if args.depth and args.normals:
-    #         depth_pred, normals_pred, boundary_pred = model(image)
-    #     elif args.depth and not args.normals:
-    #         depth_pred, boundary_pred = model(image)
-    #     elif args.normals and not args.depth:
-    #         normals_pred, boundary_pred = model(image)
-    #     else:
-    #         boundary_pred = model(image)
-    # else:
-    #     if args.depth:
-    #         depth_pred = model(image)
-    #     if args.depth and args.normals:
-    #         depth_pred, normals_pred = model(image)
-    #     if args.normals and not args.depth:
-    #         normals_pred = model(image)
 
     if args.normals:
         normals_pred = normals_pred.data.cpu().numpy()[0, ...]
@@ -165,23 +146,6 @@ def save_preds(outpath, preds, image_path, args):
         
         if not preds['occ_final'] is None:
             imsave(os.path.join(outpath, 'occ_mask_final' ,image_name), preds['occ_final'])
-
-    # if not preds['gt'] is None and args.depth:
-    #     gt_depth = preds['gt'][192:192+128,192:192+160] 
-    #     pred_depth = preds['raw'][192:192+128,192:192+160]
-    #     ref_depth = np.percentile(gt_depth, 50)
-
-    #     gt_mask = np.zeros_like(gt_depth)
-    #     gt_mask[ref_depth>gt_depth] = 255
-    #     imsave(os.path.join(outpath, 'occ_mask_gt' ,image_name), gt_mask.astype(np.uint8))
-        
-    #     init_mask = np.zeros_like(pred_depth)
-    #     init_mask[ref_depth>pred_depth] = 255
-    #     imsave(os.path.join(outpath, 'occ_mask_init',image_name), init_mask.astype(np.uint8))
-
-    #     final_mask = sigmoid(10*(ref_depth-pred_depth)) * 255
-    #     imsave(os.path.join(outpath, 'occ_mask_final' ,image_name), final_mask.astype(np.uint8))
-
 
 parser = argparse.ArgumentParser(description="Test a model on an image")
 parser.add_argument('--model', '-m', dest='model', help="checkpoint.pth which contains the model")
