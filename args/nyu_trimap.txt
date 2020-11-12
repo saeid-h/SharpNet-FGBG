@@ -8,7 +8,7 @@
 --depth 
 --pretrained-model models/nyu_sharpnet_base.pth 
 --lr 1e-3 
---max-epoch 160
+--max-epoch 80
 --occ
 --occ_type trimap
 
