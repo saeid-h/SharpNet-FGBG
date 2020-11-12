@@ -226,7 +226,8 @@ model = SharpNet(ResBlock, [3, 4, 6, 3], [2, 2, 2, 2, 2],
                  use_depth=True if args.depth else False,
                  use_occ=True if args.occ else False,
                  use_boundary=True if args.boundary else False,
-                 bias_decoder=args.bias)
+                 bias_decoder=args.bias,
+                 istraining=False)
 
 torch.set_grad_enabled(False)
 
@@ -275,7 +276,7 @@ for indx in tqdm(range(n_sample)):
     elif args.dataset.lower() in ['nyu']:
         image_path = image_list[indx]
         image_pil = Image.open(image_path)
-        gt = imread(gt_list[indx]).astype(np.float32) * 1000 / 65535. if args.gt_path else None
+        gt = imread(gt_list[indx]).astype(np.float32) / 1000. if args.gt_path else None
     else:
         gt = None
 
