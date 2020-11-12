@@ -325,8 +325,8 @@ class SharpNet(nn.Module):
             d_gt_ROI = torch.unsqueeze(d_gt, 1)[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
             x_depth_ROI = x_depth[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]] * 65536 / 1000
             if self.istraining:
-                q30 = np.quantile(d_gt_ROI.cpu().numpy(),0.3, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
-                q70 = np.quantile(d_gt_ROI.cpu().numpy(),0.7, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
+                q30 = np.quantile(x_depth_ROI.cpu().numpy(),0.3, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
+                q70 = np.quantile(x_depth_ROI.cpu().numpy(),0.7, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
                 ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
             else:
                 q50 = np.quantile(d_gt_ROI.cpu().numpy(),0.5, axis=[2,3]).reshape((d_gt_ROI.shape[0],)+(1,)*len(d_gt_ROI.shape[1:]))
