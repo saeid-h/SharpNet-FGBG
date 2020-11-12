@@ -43,11 +43,13 @@ def depth_write(filename, depth):
 def sigmoid(x):
     return 1/(1 + np.exp(-x))
 
-def get_pred_from_input(image_pil, args):
+def get_pred_from_input(image_pil, gt, args):
     normals = None
     boundary = None
     depth = None
     raw = None
+    occ_init = None
+    occ_final = None
 
     image_np = np.array(image_pil)
     
@@ -74,22 +76,28 @@ def get_pred_from_input(image_pil, args):
     image = torch.autograd.Variable(image).unsqueeze(0)
     image = image.to(device)
 
-    if args.boundary:
-        if args.depth and args.normals:
-            depth_pred, normals_pred, boundary_pred = model(image)
-        elif args.depth and not args.normals:
-            depth_pred, boundary_pred = model(image)
-        elif args.normals and not args.depth:
-            normals_pred, boundary_pred = model(image)
-        else:
-            boundary_pred = model(image)
-    else:
-        if args.depth:
-            depth_pred = model(image)
-        if args.depth and args.normals:
-            depth_pred, normals_pred = model(image)
-        if args.normals and not args.depth:
-            normals_pred = model(image)
+    if not gt is None:
+        gt_cuda = torch.as_tensor(gt[np.newaxis,:,:]).cuda()
+    x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(image, gt_cuda)
+    
+    # print (depth_pred.cpu()-gt-.02)
+    
+    # if args.boundary:
+    #     if args.depth and args.normals:
+    #         depth_pred, normals_pred, boundary_pred = model(image)
+    #     elif args.depth and not args.normals:
+    #         depth_pred, boundary_pred = model(image)
+    #     elif args.normals and not args.depth:
+    #         normals_pred, boundary_pred = model(image)
+    #     else:
+    #         boundary_pred = model(image)
+    # else:
+    #     if args.depth:
+    #         depth_pred = model(image)
+    #     if args.depth and args.normals:
+    #         depth_pred, normals_pred = model(image)
+    #     if args.normals and not args.depth:
+    #         normals_pred = model(image)
 
     if args.normals:
         normals_pred = normals_pred.data.cpu().numpy()[0, ...]
@@ -118,14 +126,29 @@ def get_pred_from_input(image_pil, args):
         boundary_pred = np.clip(boundary_pred, 0, 10)
         boundary = (boundary_pred * 255).astype('uint8')
 
-    return {'rgb':image_np, 'depth':depth, 'normals':normals, 'boundary':boundary, 'raw': raw}
+    if not occ_init_pred is None:
+        occ_init_pred = occ_init_pred.data.cpu().numpy()[0, 0, ...]
+        occ_init_pred = np.clip(occ_init_pred, 0, 1) 
+        occ_init = (occ_init_pred * 255).astype('uint8')
+
+    if not occ_final_pred is None:
+        occ_final_pred = occ_final_pred.data.cpu().numpy()[0, 0, ...]
+        occ_final_pred = np.clip(occ_final_pred, 0, 1) 
+        occ_final = (occ_final_pred * 255).astype('uint8')
+
+    if not occ_gt is None:
+        occ_gt = occ_gt.data.cpu().numpy()[0, 0, ...]
+        occ_gt = np.clip(occ_gt, 0, 1) 
+        occ_gt = (occ_gt * 255).astype('uint8')
+
+    return {'rgb':image_np, 'depth':depth, 'normals':normals, 'boundary':boundary, 'raw': raw, 
+            'x_mask':x_mask, 'x_lf':x_lf, 'occ_init':occ_init, 'occ_final':occ_final, 'occ_gt':occ_gt}
 
 
 def save_preds(outpath, preds, image_path, args):
     image_name = '_'.join(image_path.split('.')[0].split('/')[-2:])+'.png'
 
-    imsave(os.path.join(outpath, 'rgb' ,image_name), preds['rgb'])
-
+    if args.save_rgb: imsave(os.path.join(outpath, 'rgb' ,image_name), preds['rgb'])
     if args.depth: imsave(os.path.join(outpath, 'depth' ,image_name), preds['depth'])
     if args.normals: imsave(os.path.join(outpath, 'normals' ,image_name), preds['normals'])
     if args.boundary: imsave(os.path.join(outpath, 'boundary' ,image_name), preds['boundary'])
@@ -134,20 +157,30 @@ def save_preds(outpath, preds, image_path, args):
     if args.depth: depth_write(os.path.join(outpath, 'raw' ,image_name.replace('.png','.dpt')), preds['raw'])
 
     if not preds['gt'] is None and args.depth:
-        gt_depth = preds['gt'][192:192+128,192:192+160] 
-        pred_depth = preds['raw'][192:192+128,192:192+160]
-        ref_depth = np.percentile(gt_depth, 50)
+        if not preds['occ_gt'] is None:
+            imsave(os.path.join(outpath, 'occ_mask_gt' ,image_name), preds['occ_gt'])
 
-        gt_mask = np.zeros_like(gt_depth)
-        gt_mask[ref_depth>gt_depth] = 255
-        imsave(os.path.join(outpath, 'occ_mask_gt' ,image_name), gt_mask.astype(np.uint8))
+        if not preds['occ_init'] is None:
+            imsave(os.path.join(outpath, 'occ_mask_init' ,image_name), preds['occ_init'])
         
-        init_mask = np.zeros_like(pred_depth)
-        init_mask[ref_depth>pred_depth] = 255
-        imsave(os.path.join(outpath, 'occ_mask_init',image_name), init_mask.astype(np.uint8))
+        if not preds['occ_final'] is None:
+            imsave(os.path.join(outpath, 'occ_mask_final' ,image_name), preds['occ_final'])
 
-        final_mask = sigmoid(10*(ref_depth-pred_depth)) * 255
-        imsave(os.path.join(outpath, 'occ_mask_final' ,image_name), final_mask.astype(np.uint8))
+    # if not preds['gt'] is None and args.depth:
+    #     gt_depth = preds['gt'][192:192+128,192:192+160] 
+    #     pred_depth = preds['raw'][192:192+128,192:192+160]
+    #     ref_depth = np.percentile(gt_depth, 50)
+
+    #     gt_mask = np.zeros_like(gt_depth)
+    #     gt_mask[ref_depth>gt_depth] = 255
+    #     imsave(os.path.join(outpath, 'occ_mask_gt' ,image_name), gt_mask.astype(np.uint8))
+        
+    #     init_mask = np.zeros_like(pred_depth)
+    #     init_mask[ref_depth>pred_depth] = 255
+    #     imsave(os.path.join(outpath, 'occ_mask_init',image_name), init_mask.astype(np.uint8))
+
+    #     final_mask = sigmoid(10*(ref_depth-pred_depth)) * 255
+    #     imsave(os.path.join(outpath, 'occ_mask_final' ,image_name), final_mask.astype(np.uint8))
 
 
 parser = argparse.ArgumentParser(description="Test a model on an image")
@@ -166,7 +199,10 @@ parser.add_argument('--high', dest='high_threshold', type=float, default=0.05, h
 parser.add_argument('--normals', action='store_true', help='Activate to predict normals')
 parser.add_argument('--depth', action='store_true', help='Activate to predict depth')
 parser.add_argument('--boundary', action='store_true', help='Activate to predict occluding contours')
+parser.add_argument('--occ', action='store_true', help='Use mask refiner decoder')
+parser.add_argument('--occ_type',      type=str,   help='the method that occ loss applies to the model', default='depth')
 parser.add_argument('--bias', action='store_true')
+parser.add_argument('--save_rgb', action='store_true', help='saves RGB images as well.')
 
 if sys.argv.__len__() == 2:
     arg_list = list()
@@ -188,6 +224,7 @@ else:
 model = SharpNet(ResBlock, [3, 4, 6, 3], [2, 2, 2, 2, 2],
                  use_normals=True if args.normals else False,
                  use_depth=True if args.depth else False,
+                 use_occ=True if args.occ else False,
                  use_boundary=True if args.boundary else False,
                  bias_decoder=args.bias)
 
@@ -211,7 +248,7 @@ mean_BGR = np.array([mean_RGB[2], mean_RGB[1], mean_RGB[0]])
 
 if args.save_path is not None:
     outpath = os.path.join(args.save_path, args.model_name)
-    os.system ('mkdir -p '+os.path.join(outpath, 'rgb'))
+    if args.save_rgb: os.system ('mkdir -p '+os.path.join(outpath, 'rgb'))
     if args.depth: os.system ('mkdir -p '+os.path.join(outpath, 'raw'))
     if args.depth: os.system ('mkdir -p '+os.path.join(outpath, 'cmap')) 
     if args.depth: os.system ('mkdir -p '+os.path.join(outpath, 'depth'))
@@ -238,11 +275,11 @@ for indx in tqdm(range(n_sample)):
     elif args.dataset.lower() in ['nyu']:
         image_path = image_list[indx]
         image_pil = Image.open(image_path)
-        gt = imread(gt_list[indx])/1000. if args.gt_path else None
+        gt = imread(gt_list[indx]).astype(np.float32) * 1000 / 65535. if args.gt_path else None
     else:
         gt = None
 
-    preds = get_pred_from_input(image_pil, args)
+    preds = get_pred_from_input(image_pil, gt, args)
     preds.update({'gt': gt})
     
     if args.save_path is not None:
