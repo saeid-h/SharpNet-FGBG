@@ -204,7 +204,10 @@ trained_model_dict = torch.load(trained_model_path, map_location=lambda storage,
 # load image resnet encoder and mask_encoder and normals_decoder (not depth_decoder or normal resnet)
 model_weights = {k: v for k, v in trained_model_dict.items() if k in model_dict}
 
-model.load_state_dict(model_weights)
+model_dict.update(model_weights)
+model.load_state_dict(model_dict)
+
+# model.load_state_dict(model_weights)
 model.eval()
 model.to(device)
 
