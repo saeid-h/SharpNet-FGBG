@@ -191,6 +191,7 @@ model = SharpNet(ResBlock, [3, 4, 6, 3], [2, 2, 2, 2, 2],
                  use_occ=True if args.occ else False,
                  use_boundary=True if args.boundary else False,
                  bias_decoder=args.bias,
+                 occ_type=args.occ_type,
                  istraining=False)
 
 torch.set_grad_enabled(False)

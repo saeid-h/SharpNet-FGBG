@@ -322,14 +322,14 @@ class SharpNet(nn.Module):
                 CP=occ_corner_point; RS=occ_region_size
             x_img_out_feat = self.img_feat_ext(x_img)
             x_img_out_feat = x_img_out_feat[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
-            d_gt_ROI = torch.unsqueeze(d_gt, 1)[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
+            d_gt_ROI = torch.unsqueeze(d_gt, 1)[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]] 
+            x_depth_ROI = x_depth[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
             if self.istraining:
-                x_depth_ROI = x_depth[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
                 q30 = np.quantile(d_gt_ROI.cpu().numpy(),0.3, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
                 q70 = np.quantile(d_gt_ROI.cpu().numpy(),0.7, axis=[2,3]).reshape((x_depth_ROI.shape[0],)+(1,)*len(x_depth_ROI.shape[1:]))
                 ref_depth = torch.as_tensor(np.random.uniform(low=q30,high=q70)).cuda()
             else:
-                x_depth_ROI = x_depth[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]] * 65536 / 1000
+                d_gt_ROI = d_gt_ROI / 65535 * 1000
                 q50 = np.quantile(d_gt_ROI.cpu().numpy(),0.5, axis=[2,3]).reshape((d_gt_ROI.shape[0],)+(1,)*len(d_gt_ROI.shape[1:]))
                 ref_depth = torch.as_tensor(q50).cuda()
             gt_offset = ref_depth - d_gt_ROI
@@ -337,11 +337,11 @@ class SharpNet(nn.Module):
             occ_gt = torch.where(d_gt_ROI<1e-7, -1*torch.ones_like(d_gt_ROI), occ_gt)
             occ_gt = occ_gt.cuda()
 
-            x_occ_init = (ref_depth - x_depth_ROI).type(torch.cuda.FloatTensor)
+            x_occ_init = 100 * (ref_depth - x_depth_ROI).type(torch.cuda.FloatTensor)
             if self.occ_type == 'trimap':
                 ones = torch.ones_like(x_occ_init)
-                trimap = torch.where(x_occ_init < ref_depth-0.02, ones, 0.5*ones)
-                trimap = torch.where(x_occ_init < ref_depth+0.02, trimap, torch.zeros_like(x_occ_init))
+                trimap = torch.where(x_occ_init > 0.02, ones, 0.5*ones)
+                trimap = torch.where(x_occ_init < -0.02, torch.zeros_like(x_occ_init), trimap)
                 x_occ_init = trimap
             if self.occ_type == 'tanh':
                 x = x_occ_init
