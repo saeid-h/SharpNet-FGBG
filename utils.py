@@ -130,15 +130,14 @@ def get_gt_sample(dataloader, loader_iter, args):
         loader_iter = iter(dataloader)
         data = next(loader_iter)
 
-    if len(data) == 5:
+    if len(data) == 5+2:
         # normals and boundary GT
-        input, mask_gt, depth_gt, normals_gt, boundary_gt = data
+        input, mask_gt, depth_gt, normals_gt, boundary_gt, crop_corner, crop_ratio = data
     else:
         # NYU
-        input, mask_gt, depth_gt = data
+        input, mask_gt, depth_gt, crop_corner, crop_ratio = data
         normals_gt = None
         boundary_gt = None
-    
     input = input.cuda(async=False)
     mask_gt = mask_gt.cuda(async=False)
     if normals_gt is not None:
@@ -153,7 +152,8 @@ def get_gt_sample(dataloader, loader_iter, args):
 
     input = torch.autograd.Variable(input)
     mask_gt = torch.autograd.Variable(mask_gt)
-    return input, mask_gt, depth_gt, normals_gt, boundary_gt
+    
+    return input, mask_gt, depth_gt, normals_gt, boundary_gt, crop_corner, crop_ratio
 
 
 def write_loss_components(tb_writer, iteration, epoch, dataset_size, args,

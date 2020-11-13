@@ -287,7 +287,7 @@ class SharpNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x_img, d_gt=None):
+    def forward(self, x_img, d_gt=None, crop_corner=[0,0], crop_ratio=1.0):
         x_img_out = self.conv1_img(x_img)
         x_img_out = self.bn1_img(x_img_out)
         x_img_out = self.relu_img(x_img_out)
@@ -320,6 +320,7 @@ class SharpNet(nn.Module):
             else:
                 occ_region_size=[128,160]; occ_corner_point=[192,192]
                 CP=occ_corner_point; RS=occ_region_size
+            
             x_img_out_feat = self.img_feat_ext(x_img)
             x_img_out_feat = x_img_out_feat[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]]
             d_gt_ROI = torch.unsqueeze(d_gt, 1)[..., CP[0]:CP[0]+RS[0], CP[1]:CP[1]+RS[1]] 

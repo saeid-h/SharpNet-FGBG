@@ -53,9 +53,9 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
             occ_final_pred = None
             occ_gt = None
             # get ground truth sample
-            input, mask_gt, depth_gt, normals_gt, boundary_gt = get_gt_sample(train_loader, loader_iter, args)
+            input, mask_gt, depth_gt, normals_gt, boundary_gt, crop_corner, crop_ratio = get_gt_sample(train_loader, loader_iter, args)
             # compute output
-            x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt)
+            x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt, crop_corner, crop_ratio)
             # depth_pred, normals_pred, boundary_pred = get_tensor_preds(input, model, args)
             
             depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
@@ -147,9 +147,9 @@ def train_epoch(train_loader, val_loader, model, criterion, optimizer, epoch,
                 n_val_batches = int(float(val_size) / batch_size)
                 for i in range(n_val_batches)[:50]:
                     # get ground truth sample
-                    input, mask_gt, depth_gt, normals_gt, boundary_gt = get_gt_sample(val_loader, loader_iter, args)
+                    input, mask_gt, depth_gt, normals_gt, boundary_gt, crop_corner, crop_ratio = get_gt_sample(val_loader, loader_iter, args)
                     # compute output
-                    x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt)
+                    x_mask, depth_pred, x_lf, normals_pred, boundary_pred, occ_init_pred, occ_final_pred, occ_gt = model(input, depth_gt, crop_corner, crop_ratio)
                     # compute loss
                     depth_loss, grad_loss, normals_loss, b_loss, geo_loss, occ_loss = criterion(mask_gt,
                                                                                       d_pred=depth_pred,

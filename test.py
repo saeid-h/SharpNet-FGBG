@@ -114,7 +114,8 @@ def get_pred_from_input(image_pil, gt, args):
 
     if not occ_final_pred is None:
         occ_final_pred = occ_final_pred.data.cpu().numpy()[0, 0, ...]
-        occ_final_pred = np.clip(occ_final_pred, 0, 1) 
+        occ_final_pred =  sigmoid(occ_final_pred)
+        # occ_final_pred = np.clip(occ_final_pred, 0, 1) 
         occ_final = (occ_final_pred * 255).astype('uint8')
 
     if not occ_gt is None:

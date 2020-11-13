@@ -114,7 +114,7 @@ def get_random_crop(data, tw, th):
     w, h = data[0].data.size
     if w == tw and h == th:
         # should happen after above when image is smaller than crop size
-        return data
+        return data, [0,0]
 
     # crop next to objects
     [y_mask, x_mask] = np.where(data[1].data == 1)
@@ -148,8 +148,7 @@ def get_random_crop(data, tw, th):
     for i, mode in enumerate(data[1:]):
         if mode is not None:
             data[i + 1].data = data[i + 1].data[y1:y1+th, x1:x1+tw]
-
-    return data
+    return [data, [y1, x1]]
 
 
 def pad_reflection(image, top, bottom, left, right):

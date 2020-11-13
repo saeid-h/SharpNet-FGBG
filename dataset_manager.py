@@ -61,6 +61,7 @@ class GeoDataset(Dataset):
                 normals if self.use_normals else None,
                 boundary if self.use_boundary else None]
 
+        crop_corner = [0,0]
         if self.transforms is not None:
             ratio = 1
             crop_size = None
@@ -87,7 +88,8 @@ class GeoDataset(Dataset):
                     if ratio != 1:
                         mode.scale(ratio)
             if crop_size is not None:
-                data = transforms.get_random_crop(data, crop_size, crop_size)
+                data, crop_corner = transforms.get_random_crop(data, crop_size, crop_size)
+            
             for m, mode in enumerate(data):
                 if mode is not None:
                     if flip:
@@ -102,9 +104,9 @@ class GeoDataset(Dataset):
                         mode.normalize(mean=self.transforms['NORMALIZE']['mean'],
                                        std=self.transforms['NORMALIZE']['std'])
                     mode.data = mode.data.float()
+    
+        return [m.data for m in data if m is not None] + [crop_corner, ratio]
 
-        return [m.data for m in data if m is not None]
-        
 
     def __getitem__(self, idx):
         # overwrite this function when creating a new dataset
@@ -208,6 +210,7 @@ class NYUDataset(GeoDataset):
         dataset = h5py.File(self.dataset_path, 'r', libver='latest', swmr=True)
         image = dataset['images'][self.idx_list[idx]]
         image_new = image.swapaxes(0, 2)
+        image_old = image
 
         normals = None
         boundary = None
